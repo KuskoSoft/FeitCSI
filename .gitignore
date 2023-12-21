@@ -1,0 +1,12 @@
+# Ignore default output directories
+/bin/
+/obj/
+/data/
+/tmp/
+/.vscode/
+MainWindow.glade~
+poznamky
+
+
+# Ignore compiled sources in any directory
+/**/*.o
