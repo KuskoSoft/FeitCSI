@@ -45,6 +45,7 @@ struct Arguments
     uint16_t channelWidth;
     uint8_t spatialStreams;
     uint8_t txPower;
+    uint32_t antenna;
     uint16_t guardInterval;
     uint32_t injectDelay;
     uint32_t injectRepeat;

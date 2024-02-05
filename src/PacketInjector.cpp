@@ -63,7 +63,7 @@ void PacketInjector::injectNoHT()
     {
         mcs = RATE_LEGACY_RATE_MSK & arguments.mcs;
     }
-    uint32_t rateNFlags = RATE_MCS_LEGACY_OFDM_MSK | mcs;
+    uint32_t rateNFlags = RATE_MCS_LEGACY_OFDM_MSK | mcs | arguments.antenna;
 
     this->send(rateNFlags);
 }
@@ -78,6 +78,7 @@ void PacketInjector::injectHT()
     uint32_t rateNFlags =
         RATE_MCS_HT_MSK |
         mcs |
+        arguments.antenna |
         (arguments.channelWidth == 40 ? RATE_MCS_CHAN_WIDTH_40 : 0) |
         (arguments.spatialStreams == 2 ? SPATIAL_STREAM : 0) |
         (arguments.spatialStreams == 2 ? RATE_MCS_ANT_AB_MSK : 0) |
@@ -96,6 +97,7 @@ void PacketInjector::injectVHT()
     uint32_t rateNFlags =
         RATE_MCS_VHT_MSK |
         mcs |
+        arguments.antenna |
         (arguments.channelWidth == 40 ? RATE_MCS_CHAN_WIDTH_40 : 0) |
         (arguments.channelWidth == 80 ? RATE_MCS_CHAN_WIDTH_80 : 0) |
         (arguments.channelWidth == 160 ? RATE_MCS_CHAN_WIDTH_160 : 0) |
@@ -137,6 +139,7 @@ void PacketInjector::injectHE()
         RATE_MCS_HE_MSK |
         RATE_MCS_LDPC_MSK |
         mcs |
+        arguments.antenna |
         ltf |
         (arguments.channelWidth == 40 ? RATE_MCS_CHAN_WIDTH_40 : 0) |
         (arguments.channelWidth == 80 ? RATE_MCS_CHAN_WIDTH_80 : 0) |

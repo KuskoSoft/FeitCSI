@@ -55,6 +55,7 @@ static struct argp_option options[] = {
     {"ltf", 'l', "LTF", 0, "HE LTF [2xLTF+0.8|2xLTF+1.6|4xLTF+3.2|4xLTF+0.8]"},
     {"coding", 'c', "CODING", 0, "Coding scheme [LDPC|BCC]"},
     {"tx-power", 't', "TXPOWER", 0, "TX power of antenna in dBm [1-22]"},
+    {"antenna", 'a', "ANTENNA", 0, "Transmitting antenna 1, 2 or 12 for both"},
     {"mode", 'i', "MODE", 0, "Mode of program[measure|inject|measureinject]"},
     {"inject-delay", 'd', "INJECTDELAY", 0, "Delay between frame injections is us"},
     {"inject-repeat", 'j', "INJECTREPEAT", 0, "How many times inject frame"},
@@ -214,6 +215,27 @@ parse_opt(int key, char *arg, struct argp_state *state)
         args->txPower = (uint8_t)tx;
         break;
     }
+    case 'a':
+    {
+        int a = std::atoi(arg);
+        if (a == 1)
+        {
+            args->antenna = RATE_MCS_ANT_A_MSK;
+        }
+        else if (a == 2)
+        {
+            args->antenna = RATE_MCS_ANT_B_MSK;
+        }
+        else if (a == 12)
+        {
+            args->antenna = RATE_MCS_ANT_AB_MSK;
+        } 
+        else {
+            argp_failure(state, 1, 0, "Bad transmitting antenna value. Possible values 1, 2 or 12 for both");
+            exit(ARGP_ERR_UNKNOWN);
+        }
+        break;
+    }
     case 'f':
     {
         int f = std::atoi(arg);
@@ -270,6 +292,7 @@ int main(int argc, char *argv[])
         .channelWidth = 20,
         .spatialStreams = 1,
         .txPower = 10,
+        .antenna = RATE_MCS_ANT_A_MSK,
         .guardInterval = 400,
         .injectDelay = 100000,
         .injectRepeat = 0,
