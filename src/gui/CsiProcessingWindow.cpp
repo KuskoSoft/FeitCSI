@@ -1,6 +1,6 @@
 /*
  * FeitCSI is the tool for extracting CSI information from supported intel NICs.
- * Copyright (C) 2023 Miroslav Hutar.
+ * Copyright (C) 2023-2024 Miroslav Hutar.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,6 +20,7 @@
 #include "GnuPlot.h"
 #include "main.h"
 #include "Logger.h"
+#include "Arguments.h"
 #include "CsiProcessingWindow.h"
 
 void CsiProcessingWindow::init(Glib::RefPtr<Gtk::Builder> &builder)
@@ -53,7 +54,7 @@ void CsiProcessingWindow::init(Glib::RefPtr<Gtk::Builder> &builder)
 
 void CsiProcessingWindow::inputFileChange()
 {
-    arguments.inputFile = this->inputFile->get_filename();
+    Arguments::arguments.inputFile = this->inputFile->get_filename();
     csiProcessor.loadCsi();
     this->refresh();
 }
@@ -95,7 +96,7 @@ void CsiProcessingWindow::interpolationLinearRadioButtonClicked()
 {
     if (!this->csiProcessor.csiData.empty())
     {
-        arguments.processors[processor::interpolateLinear] = this->interpolationLinearRadioButton->get_active();
+        Arguments::arguments.processors[processor::interpolateLinear] = this->interpolationLinearRadioButton->get_active();
         this->csiProcessor.process(*this->csiProcessor.csiData[this->currentIndex]);
         this->refresh();
     }
@@ -105,7 +106,7 @@ void CsiProcessingWindow::interpolationCubicRadioButtonClicked()
 {
     if (!this->csiProcessor.csiData.empty())
     {
-        arguments.processors[processor::interpolateCubic] = this->interpolationCubicRadioButton->get_active();
+        Arguments::arguments.processors[processor::interpolateCubic] = this->interpolationCubicRadioButton->get_active();
         this->csiProcessor.process(*this->csiProcessor.csiData[this->currentIndex]);
         this->refresh();
     }
@@ -115,7 +116,7 @@ void CsiProcessingWindow::interpolationCosineButtonClicked()
 {
     if (!this->csiProcessor.csiData.empty())
     {
-        arguments.processors[processor::interpolateCosine] = this->interpolationCosineButton->get_active();
+        Arguments::arguments.processors[processor::interpolateCosine] = this->interpolationCosineButton->get_active();
         this->csiProcessor.process(*this->csiProcessor.csiData[this->currentIndex]);
         this->refresh();
     }
@@ -125,7 +126,7 @@ void CsiProcessingWindow::phaseLinearTransformCheckButtonClicked()
 {
     if (!this->csiProcessor.csiData.empty())
     {
-        arguments.processors[processor::phaseCalibrationLinearTransform] = this->phaseLinearTransformCheckButton->get_active();
+        Arguments::arguments.processors[processor::phaseCalibrationLinearTransform] = this->phaseLinearTransformCheckButton->get_active();
         this->csiProcessor.process(*this->csiProcessor.csiData[this->currentIndex]);
         this->refresh();
     }
@@ -135,7 +136,7 @@ void CsiProcessingWindow::processingSaveGtkButtonClicked()
 {
     if (!this->csiProcessor.csiData.empty())
     {
-        arguments.outputFile = "processedCsi.bin";
+        Arguments::arguments.outputFile = "processedCsi.bin";
         this->csiProcessor.saveCsi();
     }
 }

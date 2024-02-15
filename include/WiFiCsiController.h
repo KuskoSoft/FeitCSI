@@ -1,6 +1,6 @@
 /*
  * FeitCSI is the tool for extracting CSI information from supported intel NICs.
- * Copyright (C) 2023 Miroslav Hutar.
+ * Copyright (C) 2023-2024 Miroslav Hutar.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,6 +39,7 @@ public:
 private:
     static int listenToCsiHandler(nl80211_state *state, nl_msg *msg, void *arg);
     static int processListenToCsiHandler(nl_msg *msg, void *arg);
+    static void printDetail(Csi &c);
     GnuPlot gnuPlot;
 };
 

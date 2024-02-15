@@ -21,6 +21,7 @@
 #include "Logger.h"
 #include "GnuPlot.h"
 #include "interpolation.h"
+#include "Arguments.h"
 
 #include <fstream>
 #include <numeric>
@@ -30,7 +31,7 @@
 bool CsiProcessor::loadCsi()
 {
     this->clearState();
-    std::ifstream ifs(arguments.inputFile, std::ios::binary);
+    std::ifstream ifs(Arguments::arguments.inputFile, std::ios::binary);
 
     ifs.seekg (0, ifs.end);
     int length = ifs.tellg();
@@ -60,7 +61,7 @@ bool CsiProcessor::loadCsi()
 void CsiProcessor::saveCsi()
 {
     std::ofstream outfile;
-    outfile.open(arguments.outputFile, std::ios_base::app | std::ios::binary);
+    outfile.open(Arguments::arguments.outputFile, std::ios_base::app | std::ios::binary);
     if (outfile.fail())
     {
         throw std::ios_base::failure("Open file failed: " + std::string(std::strerror(errno)));
@@ -74,7 +75,7 @@ void CsiProcessor::saveCsi()
         outfile.write(reinterpret_cast<char *>(c->csi.data()), c->rawHeaderData.csiDataSize);
     }
     outfile.close();
-    std::filesystem::permissions(arguments.outputFile, std::filesystem::perms::all & ~(std::filesystem::perms::owner_exec | std::filesystem::perms::group_exec | std::filesystem::perms::others_exec), std::filesystem::perm_options::add);
+    std::filesystem::permissions(Arguments::arguments.outputFile, std::filesystem::perms::all & ~(std::filesystem::perms::owner_exec | std::filesystem::perms::group_exec | std::filesystem::perms::others_exec), std::filesystem::perm_options::add);
 }
 
 CsiProcessor::~CsiProcessor()
@@ -132,20 +133,20 @@ void CsiProcessor::process(Csi &csi)
     csi.backup();
     csi.restore();
 
-    if (arguments.processors[processor::interpolateLinear])
+    if (Arguments::arguments.processors[processor::interpolateLinear])
     {
         this->interpolate(csi, processor::interpolateLinear);
     } 
-    else if (arguments.processors[processor::interpolateCubic])
+    else if (Arguments::arguments.processors[processor::interpolateCubic])
     {
         this->interpolate(csi, processor::interpolateCubic);
     }
-    else if (arguments.processors[processor::interpolateCosine])
+    else if (Arguments::arguments.processors[processor::interpolateCosine])
     {
         this->interpolate(csi, processor::interpolateCosine);
     }
 
-    if (arguments.processors[processor::phaseCalibrationLinearTransform])
+    if (Arguments::arguments.processors[processor::phaseCalibrationLinearTransform])
     {
         this->phaseCalibLinearTransform(csi);
     } 

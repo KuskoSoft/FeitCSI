@@ -1,6 +1,6 @@
 /*
  * FeitCSI is the tool for extracting CSI information from supported intel NICs.
- * Copyright (C) 2023 Miroslav Hutar.
+ * Copyright (C) 2023-2024 Miroslav Hutar.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -33,6 +33,7 @@
 #include <thread>
 #include "main.h"
 #include "Logger.h"
+#include "Arguments.h"
 
 const char *IF_MODES[NL80211_IFTYPE_MAX + 1] = {
     "unspecified",
@@ -180,7 +181,7 @@ int WiFIController::setInterfaceUpDown(const char *ifName, bool up)
     // Close the socket
     close(sockfd);
 
-    if (arguments.verbose)
+    if (Arguments::arguments.verbose)
     {
         Logger::log(info) << "Interface " << ifName << " has been brought " << (up ? "up" : "down") << "\n";
     }
@@ -347,7 +348,7 @@ int WiFIController::processSetFreq(struct nl80211_state *state, struct nl_msg *m
     uint16_t settingsFreq = *(uint16_t *)(settings[0]);
     char *settingsWidth = (char *)(settings[1]);
 
-    if (arguments.verbose)
+    if (Arguments::arguments.verbose)
     {
         Logger::log(info) << "Setting frequency " << settingsFreq << " channel width " << settingsWidth << "\n";
     }
@@ -416,7 +417,7 @@ nla_put_failure:
 int WiFIController::setTxPowerHandler(nl80211_state * state, nl_msg * msg, void * arg)
 {
     enum nl80211_tx_power_setting type = NL80211_TX_POWER_FIXED;
-    int mbm = arguments.txPower * 100; //dBm to mbm *100
+    int mbm = Arguments::arguments.txPower * 100; //dBm to mbm *100
 
     NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_TX_POWER_SETTING, type);
     NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_TX_POWER_LEVEL, mbm);

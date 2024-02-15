@@ -1,6 +1,6 @@
 /*
  * FeitCSI is the tool for extracting CSI information from supported intel NICs.
- * Copyright (C) 2023 Miroslav Hutar.
+ * Copyright (C) 2023-2024 Miroslav Hutar.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,12 +17,12 @@
  */
 
 #include "gui/GnuPlot.h"
-#include "main.h"
+#include "Arguments.h"
 #include "GnuPlot.h"
 
 void GnuPlot::init()
 {
-    if (!arguments.plot || gnuPlotPipe)
+    if (!Arguments::arguments.plot || gnuPlotPipe)
     {
         return;
     }
@@ -66,7 +66,7 @@ void GnuPlot::setBlank()
 
 void GnuPlot::updateChart(Csi &csi)
 {
-    if (!arguments.plot)
+    if (!Arguments::arguments.plot)
     {
         return;
     }

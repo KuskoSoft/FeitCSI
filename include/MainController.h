@@ -1,6 +1,6 @@
 /*
  * FeitCSI is the tool for extracting CSI information from supported intel NICs.
- * Copyright (C) 2023 Miroslav Hutar.
+ * Copyright (C) 2023-2024 Miroslav Hutar.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,18 +23,20 @@
 #include "WiFIController.h"
 #include "PacketInjector.h"
 #include "gui/MainWindow.h"
+#include "UdpSocket.h"
 #include <thread>
 
 class MainController
 {
 
 public:
-    static MainController *getInstance();
+    inline static UdpSocket *udpSocket = nullptr;
 
+    static MainController *getInstance();
     
     static void deleteInstance();
 
-    void runNoGui();
+    void runNoGui(bool detach = false);
 
     void measureCsi(bool stop = false);
 
@@ -42,9 +44,14 @@ public:
 
     void runGui();
 
+    void runUdpSocket();
+
     void initInterface();
-    ~MainController();
     
+    void restoreState();
+    
+    ~MainController();
+
 private:
     MainController();
 
@@ -62,14 +69,12 @@ private:
 
     std::vector<InterfaceInfo> bkpInterfaces;
 
-
     static void *measureCsi(void *arg);
 
     static void intHandler(int dummy);
 
     static void *injectPackets(void *arg);
     
-    void restoreState();
 };
 
 #endif

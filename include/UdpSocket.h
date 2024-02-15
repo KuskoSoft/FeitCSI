@@ -1,6 +1,6 @@
 /*
  * FeitCSI is the tool for extracting CSI information from supported intel NICs.
- * Copyright (C) 2023-2024 Miroslav Hutar.
+ * Copyright (C) 2024 Miroslav Hutar.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,30 +16,24 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef PACKET_INJECTOR_H
-#define PACKET_INJECTOR_H
+#ifndef UDP_SOCKET_H
+#define UDP_SOCKET_H
 
-#include <stdint.h>
-#include "ieee80211_radiotap.h"
-#include "rs.h"
-#include <pcap.h>
+#include <sys/socket.h>
 
-#define BIT(n) (0x1U << (n))
-
-class PacketInjector
+class UdpSocket
 {
 
 public:
-    void inject();
-    void injectNoHT();
-    void injectHT();
-    void injectVHT();
-    void injectHE();
-
+    void init();
+    void send(char *buf, int size);
 
 private:
-    void send(uint32_t rateNFlags);
-    pcap_t *ppcap = nullptr;
+
+    int sfd;
+    bool running = false;
+    struct sockaddr_storage peer_addr;
+    socklen_t peer_addr_len;
 };
 
 #endif

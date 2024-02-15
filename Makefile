@@ -1,3 +1,8 @@
+include .env
+
+# Variables
+CDEFS += -DFEITCSI_VERSION="\"${FEITCSI_VERSION}"\"
+
 # Target
 BIN_DIR = bin
 BIN = $(BIN_DIR)/app
@@ -19,7 +24,7 @@ INCLUDE_LIB_DIRS =
 INCLUDE_LIB = $(foreach includedir,$(INCLUDE_LIB_DIRS),-L$(includedir))
 
 # Set compiler, preprocesor and linker flags
-CXXFLAGS += -g -O3 -Wall -std=c++17 $(INCLUDE)
+CXXFLAGS +=  -g -O3 -Wall -std=c++17 $(CDEFS) $(INCLUDE)
 CPPFLAGS += `pkg-config --cflags gtkmm-3.0 libnl-3.0 libnl-genl-3.0 libpcap`
 LDFLAGS += $(INCLUDE_LIB)
 LDLIBS += `pkg-config --libs gtkmm-3.0 libnl-3.0 libnl-genl-3.0 libpcap`

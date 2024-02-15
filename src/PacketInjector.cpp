@@ -1,6 +1,6 @@
 /*
  * FeitCSI is the tool for extracting CSI information from supported intel NICs.
- * Copyright (C) 2023 Miroslav Hutar.
+ * Copyright (C) 2023-2024 Miroslav Hutar.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,8 +19,8 @@
 #include "PacketInjector.h"
 #include "main.h"
 #include "Logger.h"
+#include "Arguments.h"
 #include <string.h>
-#include <pcap.h>
 #include <iostream>
 
 #define SPATIAL_STREAM 16
@@ -32,25 +32,25 @@ uint8_t ieee80211Body[] = {};
 
 void PacketInjector::inject()
 {
-    if (arguments.verbose)
+    if (Arguments::arguments.verbose)
     {
-        Logger::log(info) << "Injecting " << arguments.format << "\n";
+        Logger::log(info) << "Injecting " << Arguments::arguments.format << "\n";
     }
 
     
-    if (arguments.format == "NOHT")
+    if (Arguments::arguments.format == "NOHT")
     {
         this->injectNoHT();
     }
-    else if (arguments.format == "HT")
+    else if (Arguments::arguments.format == "HT")
     {
         this->injectHT();
     }
-    else if (arguments.format == "VHT")
+    else if (Arguments::arguments.format == "VHT")
     {
         this->injectVHT();
     }
-    else if (arguments.format == "HESU")
+    else if (Arguments::arguments.format == "HESU")
     {
         this->injectHE();
     }
@@ -59,11 +59,11 @@ void PacketInjector::inject()
 void PacketInjector::injectNoHT()
 {
     uint8_t mcs = 0;
-    if (RATE_LEGACY_RATE_MSK >= arguments.mcs)
+    if (RATE_LEGACY_RATE_MSK >= Arguments::arguments.mcs)
     {
-        mcs = RATE_LEGACY_RATE_MSK & arguments.mcs;
+        mcs = RATE_LEGACY_RATE_MSK & Arguments::arguments.mcs;
     }
-    uint32_t rateNFlags = RATE_MCS_LEGACY_OFDM_MSK | mcs | arguments.antenna;
+    uint32_t rateNFlags = RATE_MCS_LEGACY_OFDM_MSK | mcs | Arguments::arguments.antenna;
 
     this->send(rateNFlags);
 }
@@ -71,65 +71,65 @@ void PacketInjector::injectNoHT()
 void PacketInjector::injectHT()
 {
     uint8_t mcs = 0;
-    if (RATE_HT_MCS_CODE_MSK >= arguments.mcs)
+    if (RATE_HT_MCS_CODE_MSK >= Arguments::arguments.mcs)
     {
-        mcs = RATE_HT_MCS_CODE_MSK & arguments.mcs;
+        mcs = RATE_HT_MCS_CODE_MSK & Arguments::arguments.mcs;
     }
     uint32_t rateNFlags =
         RATE_MCS_HT_MSK |
         mcs |
-        arguments.antenna |
-        (arguments.channelWidth == 40 ? RATE_MCS_CHAN_WIDTH_40 : 0) |
-        (arguments.spatialStreams == 2 ? SPATIAL_STREAM : 0) |
-        (arguments.spatialStreams == 2 ? RATE_MCS_ANT_AB_MSK : 0) |
-        (arguments.guardInterval == 400 ? RATE_MCS_SGI_MSK : 0) |
-        (arguments.coding == "LDPC" ? RATE_MCS_LDPC_MSK : 0);
+        Arguments::arguments.antenna |
+        (Arguments::arguments.channelWidth == 40 ? RATE_MCS_CHAN_WIDTH_40 : 0) |
+        (Arguments::arguments.spatialStreams == 2 ? SPATIAL_STREAM : 0) |
+        (Arguments::arguments.spatialStreams == 2 ? RATE_MCS_ANT_AB_MSK : 0) |
+        (Arguments::arguments.guardInterval == 400 ? RATE_MCS_SGI_MSK : 0) |
+        (Arguments::arguments.coding == "LDPC" ? RATE_MCS_LDPC_MSK : 0);
     this->send(rateNFlags);
 }
 
 void PacketInjector::injectVHT()
 {
     uint8_t mcs = 0;
-    if (RATE_MCS_CODE_MSK >= arguments.mcs)
+    if (RATE_MCS_CODE_MSK >= Arguments::arguments.mcs)
     {
-        mcs = RATE_MCS_CODE_MSK & arguments.mcs;
+        mcs = RATE_MCS_CODE_MSK & Arguments::arguments.mcs;
     }
     uint32_t rateNFlags =
         RATE_MCS_VHT_MSK |
         mcs |
-        arguments.antenna |
-        (arguments.channelWidth == 40 ? RATE_MCS_CHAN_WIDTH_40 : 0) |
-        (arguments.channelWidth == 80 ? RATE_MCS_CHAN_WIDTH_80 : 0) |
-        (arguments.channelWidth == 160 ? RATE_MCS_CHAN_WIDTH_160 : 0) |
-        (arguments.spatialStreams == 2 ? SPATIAL_STREAM : 0) |
-        (arguments.spatialStreams == 2 ? RATE_MCS_ANT_AB_MSK : 0) |
-        (arguments.guardInterval == 400 ? RATE_MCS_SGI_MSK : 0) |
-        (arguments.coding == "LDPC" ? RATE_MCS_LDPC_MSK : 0);
+        Arguments::arguments.antenna |
+        (Arguments::arguments.channelWidth == 40 ? RATE_MCS_CHAN_WIDTH_40 : 0) |
+        (Arguments::arguments.channelWidth == 80 ? RATE_MCS_CHAN_WIDTH_80 : 0) |
+        (Arguments::arguments.channelWidth == 160 ? RATE_MCS_CHAN_WIDTH_160 : 0) |
+        (Arguments::arguments.spatialStreams == 2 ? SPATIAL_STREAM : 0) |
+        (Arguments::arguments.spatialStreams == 2 ? RATE_MCS_ANT_AB_MSK : 0) |
+        (Arguments::arguments.guardInterval == 400 ? RATE_MCS_SGI_MSK : 0) |
+        (Arguments::arguments.coding == "LDPC" ? RATE_MCS_LDPC_MSK : 0);
     this->send(rateNFlags);
 }
 
 void PacketInjector::injectHE()
 {
     uint8_t mcs = 0;
-    if (RATE_MCS_CODE_MSK >= arguments.mcs)
+    if (RATE_MCS_CODE_MSK >= Arguments::arguments.mcs)
     {
-        mcs = RATE_MCS_CODE_MSK & arguments.mcs;
+        mcs = RATE_MCS_CODE_MSK & Arguments::arguments.mcs;
     }
 
     uint32_t ltf = 1;
-    if (arguments.ltf == "2xLTF+0.8")
+    if (Arguments::arguments.ltf == "2xLTF+0.8")
     {
         ltf = 1;
     }
-    else if (arguments.ltf == "2xLTF+1.6")
+    else if (Arguments::arguments.ltf == "2xLTF+1.6")
     {
         ltf = 2;
     }
-    else if (arguments.ltf == "4xLTF+3.2")
+    else if (Arguments::arguments.ltf == "4xLTF+3.2")
     {
         ltf = 3;
     }
-    else if (arguments.ltf == "4xLTF+0.8")
+    else if (Arguments::arguments.ltf == "4xLTF+0.8")
     {
         ltf = 4;
     }
@@ -139,13 +139,13 @@ void PacketInjector::injectHE()
         RATE_MCS_HE_MSK |
         RATE_MCS_LDPC_MSK |
         mcs |
-        arguments.antenna |
+        Arguments::arguments.antenna |
         ltf |
-        (arguments.channelWidth == 40 ? RATE_MCS_CHAN_WIDTH_40 : 0) |
-        (arguments.channelWidth == 80 ? RATE_MCS_CHAN_WIDTH_80 : 0) |
-        (arguments.channelWidth == 160 ? RATE_MCS_CHAN_WIDTH_160 : 0) |
-        (arguments.spatialStreams == 2 ? SPATIAL_STREAM : 0) |
-        (arguments.spatialStreams == 2 ? RATE_MCS_ANT_AB_MSK : 0);
+        (Arguments::arguments.channelWidth == 40 ? RATE_MCS_CHAN_WIDTH_40 : 0) |
+        (Arguments::arguments.channelWidth == 80 ? RATE_MCS_CHAN_WIDTH_80 : 0) |
+        (Arguments::arguments.channelWidth == 160 ? RATE_MCS_CHAN_WIDTH_160 : 0) |
+        (Arguments::arguments.spatialStreams == 2 ? SPATIAL_STREAM : 0) |
+        (Arguments::arguments.spatialStreams == 2 ? RATE_MCS_ANT_AB_MSK : 0);
     this->send(rateNFlags);
 }
 
@@ -170,15 +170,20 @@ void PacketInjector::send(uint32_t rateNFlags)
     memcpy(&sendBuffer[rthdr.it_len], ieee80211Header, sizeof(ieee80211Header));
     memcpy(&sendBuffer[rthdr.it_len + sizeof(ieee80211Header)], ieee80211Body, sizeof(ieee80211Body));
 
-    uint16_t totalSize = rthdr.it_len + sizeof(ieee80211Header) + sizeof(ieee80211Body);
+    int totalSize = rthdr.it_len + sizeof(ieee80211Header) + sizeof(ieee80211Body);
 
     char szErrbuf[500];
-    pcap_t *ppcap = pcap_open_live("mon0", 800, 1, 20, szErrbuf);
+
+    if (ppcap == nullptr) {
+        ppcap = pcap_open_live("mon0", 800, 1, 20, szErrbuf);
+    }
+
     int r = pcap_inject(ppcap, sendBuffer, totalSize);
-    if (r > 0)
+    if (r != totalSize)
     {
         //pcap_perror(ppcap, "Failed to inject packet");
         pcap_close(ppcap);
+        ppcap = nullptr;
         //throw std::ios_base::failure("Failed to inject packet\n");
     }
 

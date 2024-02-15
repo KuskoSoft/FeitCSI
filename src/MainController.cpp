@@ -1,6 +1,6 @@
 /*
  * FeitCSI is the tool for extracting CSI information from supported intel NICs.
- * Copyright (C) 2023 Miroslav Hutar.
+ * Copyright (C) 2023-2024 Miroslav Hutar.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@
  */
 
 #include "MainController.h"
-#include "main.h"
+#include "Arguments.h"
 #include "Logger.h"
 #include "gui/MainWindow.h"
 #include "layout.h"
@@ -44,31 +44,42 @@ void MainController::deleteInstance()
     delete MainController::INSTANCE;
 }
 
-void MainController::runNoGui()
+void MainController::runNoGui(bool detach)
 {
     this->initInterface();
-    if (arguments.measure)
+    if (Arguments::arguments.measure)
     {
         pthread_create(&this->measureCsiThread, NULL, &MainController::measureCsi, NULL);
     }
-    if (arguments.inject)
+    if (Arguments::arguments.inject)
     {
         pthread_create(&this->injectPacketThread, NULL, &MainController::injectPackets, NULL);
     }
-    if (arguments.measure)
+    if (Arguments::arguments.measure)
     {
-        pthread_join(this->measureCsiThread, NULL);
+        if (detach) {
+            pthread_detach(this->measureCsiThread);
+        } else {
+            pthread_join(this->measureCsiThread, NULL);
+        }
     }
-    if (arguments.inject)
+    if (Arguments::arguments.inject)
     {
-        pthread_join(this->injectPacketThread, NULL);
+        if (detach) {
+            pthread_detach(this->injectPacketThread);
+        } else {
+            pthread_join(this->injectPacketThread, NULL);
+        }
     }
-    this->deleteInstance();
+
+    if (!detach) {
+        this->deleteInstance();
+    }
 }
 
 void MainController::measureCsi(bool stop)
 {
-    this->wifiController.setFreq(arguments.frequency, arguments.bandwidth.c_str());
+    this->wifiController.setFreq(Arguments::arguments.frequency, Arguments::arguments.bandwidth.c_str());
     if (stop)
     {
         pthread_cancel(this->measureCsiThread);
@@ -83,7 +94,7 @@ void MainController::measureCsi(bool stop)
 void MainController::injectPackets(bool stop)
 {
     this->wifiController.setTxPower();
-    this->wifiController.setFreq(arguments.frequency, arguments.bandwidth.c_str());
+    this->wifiController.setFreq(Arguments::arguments.frequency, Arguments::arguments.bandwidth.c_str());
     if (stop)
     {
         pthread_cancel(this->injectPacketThread);
@@ -97,10 +108,10 @@ void MainController::injectPackets(bool stop)
 
 void MainController::runGui()
 {
-    arguments.plot = true;
-    arguments.verbose = true;
-    arguments.measure = false;
-    arguments.inject = false;
+    Arguments::arguments.plot = true;
+    Arguments::arguments.verbose = true;
+    Arguments::arguments.measure = false;
+    Arguments::arguments.inject = false;
     gtk_init(NULL, NULL);
     Glib::init();
     auto app = Gtk::Application::create("com.kuskosoft.feitcsi");
@@ -108,6 +119,12 @@ void MainController::runGui()
     auto builder = Gtk::Builder::create_from_string(layout);
     builder->get_widget_derived("MainWindow", this->mainWindow);
     app->run(*this->mainWindow);
+}
+
+void MainController::runUdpSocket()
+{
+    this->udpSocket = new UdpSocket();
+    udpSocket->init();
 }
 
 void MainController::initInterface()
@@ -121,7 +138,7 @@ void MainController::initInterface()
         // delete actual interfaces
         for (InterfaceInfo interface : this->wifiController.interfaces)
         {
-            if (arguments.verbose)
+            if (Arguments::arguments.verbose)
             {
                 Logger::log(info) << "Remove interface " << interface.ifName << "\n";
             }
@@ -130,7 +147,7 @@ void MainController::initInterface()
         }
         this->wifiController.addMonitorDevice(MONITOR_INTERFACE_NAME, NL80211_IFTYPE_MONITOR);
         this->wifiController.setInterfaceUpDown(MONITOR_INTERFACE_NAME, true);
-        this->wifiController.setFreq(arguments.frequency, arguments.bandwidth.c_str());
+        this->wifiController.setFreq(Arguments::arguments.frequency, Arguments::arguments.bandwidth.c_str());
         if (!MainController::mainWindow)
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(500)); //wait on init then set power and go next
@@ -181,12 +198,12 @@ void *MainController::injectPackets(void *arg)
     try
     {
         PacketInjector pi;
-        if (arguments.injectRepeat)
+        if (Arguments::arguments.injectRepeat)
         {
-            for (uint32_t i = 0; i < arguments.injectRepeat; i++)
+            for (uint32_t i = 0; i < Arguments::arguments.injectRepeat; i++)
             {
                 pi.inject();
-                std::this_thread::sleep_for(std::chrono::microseconds(arguments.injectDelay));
+                std::this_thread::sleep_for(std::chrono::microseconds(Arguments::arguments.injectDelay));
             }
         }
         else
@@ -194,7 +211,7 @@ void *MainController::injectPackets(void *arg)
             while (true)
             {
                 pi.inject();
-                std::this_thread::sleep_for(std::chrono::microseconds(arguments.injectDelay));
+                std::this_thread::sleep_for(std::chrono::microseconds(Arguments::arguments.injectDelay));
             }
         }
     }
@@ -229,14 +246,16 @@ void MainController::restoreState()
     mainController->wifiController.removeInterface(MONITOR_INTERFACE_NAME);
     for (InterfaceInfo interface : mainController->bkpInterfaces)
     {
-        if (arguments.verbose)
+        if (Arguments::arguments.verbose)
         {
             Logger::log(info) << "Recovering interface " << interface.ifName << "\n";
         }
         mainController->wifiController.addMonitorDevice(interface.ifName.c_str(), (nl80211_iftype)interface.ifType);
     }
+    mainController->bkpInterfaces.clear();
+    mainController->wifiController.interfaces.clear();
 
-    if (arguments.verbose)
+    if (Arguments::arguments.verbose)
     {
         Logger::log(info) << "Exiting recovery state...\n";
     }
@@ -245,6 +264,9 @@ void MainController::restoreState()
 MainController::~MainController()
 {
     this->restoreState();
+    if (udpSocket) {
+        delete udpSocket;
+    }
 }
 
 void MainController::intHandler(int dummy)

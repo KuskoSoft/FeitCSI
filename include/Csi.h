@@ -1,6 +1,6 @@
 /*
  * FeitCSI is the tool for extracting CSI information from supported intel NICs.
- * Copyright (C) 2023 Miroslav Hutar.
+ * Copyright (C) 2023-2024 Miroslav Hutar.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,6 +23,7 @@
 #include <string>
 #include <complex>
 #include <vector>
+#include "UdpSocket.h"
 
 #define CSI_HEADER_LENGTH 272
 
@@ -56,6 +57,7 @@ public:
     void loadFromMemory(uint8_t *pHeader, uint8_t *rawCsiData);
     void loadFromMemory(uint8_t *rawData);
     void save();
+    void sendUDP(UdpSocket *udpSocket);
     void backup();
     void restore();
     void magnitudePhaseToComplex();

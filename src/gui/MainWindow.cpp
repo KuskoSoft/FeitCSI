@@ -1,6 +1,6 @@
 /*
  * FeitCSI is the tool for extracting CSI information from supported intel NICs.
- * Copyright (C) 2023 Miroslav Hutar.
+ * Copyright (C) 2023-2024 Miroslav Hutar.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,12 +17,12 @@
  */
 
 #include "gui/MainWindow.h"
-#include "main.h"
 #include <iostream>
 #include "MainWindow.h"
 #include "MainController.h"
 #include "WiFIController.h"
 #include "Logger.h"
+#include "Arguments.h"
 
 MainWindow::MainWindow(BaseObjectType *obj, Glib::RefPtr<Gtk::Builder> const &builder) : Gtk::ApplicationWindow(obj), builder{builder}
 {
@@ -157,71 +157,71 @@ void MainWindow::onResize()
 void MainWindow::frequencyChange()
 {
     int v = std::atoi(this->frequency->get_text().raw().c_str());
-    arguments.frequency = (uint16_t)v;
+    Arguments::arguments.frequency = (uint16_t)v;
 }
 
 void MainWindow::channelWidthChange()
 {
-    arguments.bandwidth = this->channelWidth->get_active_text().raw();
-    struct ChanMode chMode = WiFIController::getChanMode(arguments.bandwidth.c_str());
-    arguments.channelWidth = WiFIController::chanModeToWidth(chMode);
+    Arguments::arguments.bandwidth = this->channelWidth->get_active_text().raw();
+    struct ChanMode chMode = WiFIController::getChanMode(Arguments::arguments.bandwidth.c_str());
+    Arguments::arguments.channelWidth = WiFIController::chanModeToWidth(chMode);
 }
 
 void MainWindow::outputFileChange()
 {
-    arguments.outputFile = this->outputFile->get_filename();
-    this->filePath->set_text(arguments.outputFile);
+    Arguments::arguments.outputFile = this->outputFile->get_filename();
+    this->filePath->set_text(Arguments::arguments.outputFile);
 }
 
 void MainWindow::formatChange()
 {
-    arguments.format = this->format->get_active_text().raw();
+    Arguments::arguments.format = this->format->get_active_text().raw();
 }
 
 void MainWindow::mcsChange()
 {
     int v = std::atoi(this->mcs->get_active_text().raw().c_str());
-    arguments.mcs = (uint8_t)v;
+    Arguments::arguments.mcs = (uint8_t)v;
 }
 
 void MainWindow::spatialStreamsChange()
 {
     int v = std::atoi(this->spatialStreams->get_active_text().raw().c_str());
-    arguments.spatialStreams = (uint8_t)v;
+    Arguments::arguments.spatialStreams = (uint8_t)v;
 }
 
 void MainWindow::ltfChange()
 {
-    arguments.ltf = this->ltf->get_active_text().raw();
+    Arguments::arguments.ltf = this->ltf->get_active_text().raw();
 }
 
 void MainWindow::guardIntervalChange()
 {
     int v = std::atoi(this->guardInterval->get_active_text().raw().c_str());
-    arguments.guardInterval = (uint16_t)v;
+    Arguments::arguments.guardInterval = (uint16_t)v;
 }
 
 void MainWindow::txPowerChange()
 {
     int v = std::atoi(this->txPower->get_active_text().raw().c_str());
-    arguments.txPower = (uint8_t)v;
+    Arguments::arguments.txPower = (uint8_t)v;
 }
 
 void MainWindow::codingChange()
 {
-    arguments.coding = this->coding->get_active_text().raw();
+    Arguments::arguments.coding = this->coding->get_active_text().raw();
 }
 
 void MainWindow::injectDelayChange()
 {
     int v = std::atoi(this->injectDelay->get_text().raw().c_str());
-    arguments.injectDelay = (uint32_t)v;
+    Arguments::arguments.injectDelay = (uint32_t)v;
 }
 
 void MainWindow::injectRepeatChange()
 {
     int v = std::atoi(this->injectRepeat->get_text().raw().c_str());
-    arguments.injectRepeat = (uint32_t)v;
+    Arguments::arguments.injectRepeat = (uint32_t)v;
 }
 
 void MainWindow::updateErrorMessages()

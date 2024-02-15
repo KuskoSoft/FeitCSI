@@ -1,6 +1,6 @@
 /*
  * FeitCSI is the tool for extracting CSI information from supported intel NICs.
- * Copyright (C) 2023 Miroslav Hutar.
+ * Copyright (C) 2023-2024 Miroslav Hutar.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,9 +24,9 @@
 #include <vector>
 #include <iostream>
 #include <filesystem>
-#include "main.h"
 #include "rs.h"
 #include "Logger.h"
+#include "Arguments.h"
 
 Csi::Csi()
 {
@@ -73,7 +73,7 @@ void Csi::loadFromMemory(uint8_t *rawData)
 void Csi::save()
 {
     std::ofstream outfile;
-    outfile.open(arguments.outputFile, std::ios_base::app | std::ios::binary);
+    outfile.open(Arguments::arguments.outputFile, std::ios_base::app | std::ios::binary);
     if (outfile.fail())
     {
         throw std::ios_base::failure("Open file failed: " + std::string(std::strerror(errno)));
@@ -81,7 +81,16 @@ void Csi::save()
     outfile.write(reinterpret_cast<char *>(&this->rawHeaderData), sizeof(RawHeaderData));
     outfile.write(reinterpret_cast<char *>(this->rawCsiData), this->rawHeaderData.csiDataSize);
     outfile.close();
-    std::filesystem::permissions(arguments.outputFile, std::filesystem::perms::all & ~(std::filesystem::perms::owner_exec | std::filesystem::perms::group_exec | std::filesystem::perms::others_exec), std::filesystem::perm_options::add);
+    std::filesystem::permissions(Arguments::arguments.outputFile, std::filesystem::perms::all & ~(std::filesystem::perms::owner_exec | std::filesystem::perms::group_exec | std::filesystem::perms::others_exec), std::filesystem::perm_options::add);
+}
+
+void Csi::sendUDP(UdpSocket *udpSocket)
+{
+    int size = CSI_HEADER_LENGTH + this->rawHeaderData.csiDataSize;
+    char data[size]; 
+    memcpy(data, &this->rawHeaderData, CSI_HEADER_LENGTH);
+    memcpy(&data[CSI_HEADER_LENGTH], this->rawCsiData, this->rawHeaderData.csiDataSize);
+    udpSocket->send(data, size);
 }
 
 void Csi::fixCsiBug()
@@ -195,57 +204,6 @@ void Csi::processRawCsi()
         this->csi.push_back(c);
         this->magnitude.push_back(std::abs(c));
         this->phase.push_back(std::arg(c));
-    }
-
-    //this->unwrapPhase();
-
-    if (arguments.verbose)
-    {
-        Logger::log(info) << "Subcarrier count: " << this->rawHeaderData.numSubCarriers << ", ";
-        Logger::log(info, true) << "RX: " << +this->rawHeaderData.numRx << ", ";
-        Logger::log(info, true) << "TX: " << +this->rawHeaderData.numTx << ", ";
-
-        switch (channelWidth)
-        {
-        case RATE_MCS_CHAN_WIDTH_20:
-            Logger::log(info, true) << "Channel width: 20, ";
-            break;
-        case RATE_MCS_CHAN_WIDTH_40:
-            Logger::log(info, true) << "Channel width: 40, ";
-            break;
-        case RATE_MCS_CHAN_WIDTH_80:
-            Logger::log(info, true) << "Channel width: 80, ";
-            break;
-        case RATE_MCS_CHAN_WIDTH_160:
-            Logger::log(info, true) << "Channel width: 160, ";
-            break;
-        }
-        switch (format)
-        {
-        case RATE_MCS_CCK_MSK: // VERY OLD FORMAT
-            Logger::log(info, true) << "Format: CCK\n";
-            break;
-        case RATE_MCS_LEGACY_OFDM_MSK:
-            Logger::log(info, true) << "Format: LEGACY_OFDM\n";
-            break;
-            break;
-        case RATE_MCS_HT_MSK:
-            Logger::log(info, true) << "Format: HT\n";
-            break;
-            break;
-        case RATE_MCS_VHT_MSK:
-            Logger::log(info, true) << "Format: VHT\n";
-            break;
-            break;
-        case RATE_MCS_HE_MSK:
-            Logger::log(info, true) << "Format: HE\n";
-            break;
-            break;
-        case RATE_MCS_EHT_MSK:
-            Logger::log(info, true) << "Format: EHT\n";
-            break;
-            break;
-        }
     }
 }
 

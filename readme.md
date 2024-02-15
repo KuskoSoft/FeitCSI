@@ -41,7 +41,7 @@ citations to the FeitCSI project:
 ## Competition
 There are some platforms, that are used to extract CSI from commodity hardware. However, they don't support current standards or injection packets. The only one competition is PicoScenes. It is a robust and good platform but FeitCSI has several advantages against it:
 
-* **All for free without limits** (Some of the functionality (full 6GHz spectrum, packet injection in 11ac/ax format with 80/160MHz channel bandwidth, ...) are allowed after payment for the license in PicoScenes)
+* **All for free without limits**
 * **No restriction to specific version of Linux OS and computer architecture** (PicoScenes work only on CPU with SSE4.2 or AVX2 and you need to have Ubuntu 20.04 LTS or its variants. **FeitCSI will work on every computer architecture** where can be installed Linux (e.g. x86-64, ARM). But of course, you have to plug NICs via PCI.)
 * **Support virtual environment** (If you don't want to install software on your computer or you have trouble, just download our prepared image of FeitCSI and enjoy FeitCSI in the virtual environment. Follow the steps in [Getting started - Virtual environment](https://feitcsi.kuskosoft.com/getting_started/#virtual-environment))
 * **Live medium** (Our image can be also used in live medium (e.g. USB), not only in the virtual environment)

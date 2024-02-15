@@ -1,6 +1,6 @@
 /*
  * FeitCSI is the tool for extracting CSI information from supported intel NICs.
- * Copyright (C) 2023 Miroslav Hutar.
+ * Copyright (C) 2023-2024 Miroslav Hutar.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,6 +19,8 @@
 #include "WiFiCsiController.h"
 #include "Csi.h"
 #include "GnuPlot.h"
+#include "MainController.h"
+#include "Arguments.h"
 
 #include <errno.h>
 #include <netlink/genl/genl.h>
@@ -93,26 +95,33 @@ int WiFiCsiController::processListenToCsiHandler(struct nl_msg *msg, void *arg)
 
             Csi c;
             c.loadFromMemory(header, dataCsi);
-            instance->gnuPlot.updateChart(c);
 
             if (
-                (c.channelWidth == RATE_MCS_CHAN_WIDTH_20 && arguments.channelWidth == 20) ||
-                (c.channelWidth == RATE_MCS_CHAN_WIDTH_40 && arguments.channelWidth == 40) ||
-                (c.channelWidth == RATE_MCS_CHAN_WIDTH_80 && arguments.channelWidth == 80) ||
-                (c.channelWidth == RATE_MCS_CHAN_WIDTH_160 && arguments.channelWidth == 160)
+                (c.channelWidth == RATE_MCS_CHAN_WIDTH_20 && Arguments::arguments.channelWidth == 20) ||
+                (c.channelWidth == RATE_MCS_CHAN_WIDTH_40 && Arguments::arguments.channelWidth == 40) ||
+                (c.channelWidth == RATE_MCS_CHAN_WIDTH_80 && Arguments::arguments.channelWidth == 80) ||
+                (c.channelWidth == RATE_MCS_CHAN_WIDTH_160 && Arguments::arguments.channelWidth == 160)
             
             )
             {
                 if (
-                    (c.format == RATE_MCS_LEGACY_OFDM_MSK && arguments.format == "NOHT") ||
-                    (c.format == RATE_MCS_HT_MSK && arguments.format == "HT") ||
-                    (c.format == RATE_MCS_VHT_MSK && arguments.format == "VHT") ||
-                    (c.format == RATE_MCS_HE_MSK && arguments.format == "HESU") ||
-                    (c.format == RATE_MCS_EHT_MSK && arguments.format == "EHT")
+                    (c.format == RATE_MCS_LEGACY_OFDM_MSK && Arguments::arguments.format == "NOHT") ||
+                    (c.format == RATE_MCS_HT_MSK && Arguments::arguments.format == "HT") ||
+                    (c.format == RATE_MCS_VHT_MSK && Arguments::arguments.format == "VHT") ||
+                    (c.format == RATE_MCS_HE_MSK && Arguments::arguments.format == "HESU") ||
+                    (c.format == RATE_MCS_EHT_MSK && Arguments::arguments.format == "EHT")
                 
                 )
                 {
-                    c.save();
+                    if (Arguments::arguments.verbose) {
+                        printDetail(c);
+                    }
+                    instance->gnuPlot.updateChart(c);
+                    if ( MainController::getInstance()->udpSocket ) {
+                        c.sendUDP(MainController::getInstance()->udpSocket);
+                    } else {
+                        c.save();
+                    }
                 }
             }
         }
@@ -121,9 +130,58 @@ int WiFiCsiController::processListenToCsiHandler(struct nl_msg *msg, void *arg)
     return NL_SKIP;
 }
 
+void WiFiCsiController::printDetail(Csi &c)
+{
+    Logger::log(info) << "Subcarrier count: " << c.rawHeaderData.numSubCarriers << ", ";
+    Logger::log(info, true) << "RX: " << +c.rawHeaderData.numRx << ", ";
+    Logger::log(info, true) << "TX: " << +c.rawHeaderData.numTx << ", ";
+
+    switch (c.channelWidth)
+    {
+    case RATE_MCS_CHAN_WIDTH_20:
+        Logger::log(info, true) << "Channel width: 20, ";
+        break;
+    case RATE_MCS_CHAN_WIDTH_40:
+        Logger::log(info, true) << "Channel width: 40, ";
+        break;
+    case RATE_MCS_CHAN_WIDTH_80:
+        Logger::log(info, true) << "Channel width: 80, ";
+        break;
+    case RATE_MCS_CHAN_WIDTH_160:
+        Logger::log(info, true) << "Channel width: 160, ";
+        break;
+    }
+    switch (c.format)
+    {
+    case RATE_MCS_CCK_MSK: // VERY OLD FORMAT
+        Logger::log(info, true) << "Format: CCK\n";
+        break;
+    case RATE_MCS_LEGACY_OFDM_MSK:
+        Logger::log(info, true) << "Format: LEGACY_OFDM\n";
+        break;
+        break;
+    case RATE_MCS_HT_MSK:
+        Logger::log(info, true) << "Format: HT\n";
+        break;
+        break;
+    case RATE_MCS_VHT_MSK:
+        Logger::log(info, true) << "Format: VHT\n";
+        break;
+        break;
+    case RATE_MCS_HE_MSK:
+        Logger::log(info, true) << "Format: HE\n";
+        break;
+        break;
+    case RATE_MCS_EHT_MSK:
+        Logger::log(info, true) << "Format: EHT\n";
+        break;
+        break;
+    }
+}
+
 void WiFiCsiController::enableCsi(bool enable)
 {
-    if (arguments.verbose)
+    if (Arguments::arguments.verbose)
     {
         if (enable)
         {
