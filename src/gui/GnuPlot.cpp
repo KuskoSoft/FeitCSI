@@ -64,13 +64,29 @@ void GnuPlot::setBlank()
     fflush(this->gnuPlotPipe);
 }
 
-void GnuPlot::updateChart(Csi &csi)
+void GnuPlot::updateChartAsync(Csi *csi)
 {
     if (!Arguments::arguments.plot)
     {
         return;
     }
 
+    bool isEventRunning = false;
+    
+    if (this->runningAsyncEvent.valid())
+    {
+        isEventRunning = this->runningAsyncEvent.wait_for(std::chrono::seconds(0)) != std::future_status::ready;
+    }
+
+    if (!isEventRunning)
+    {
+        std::future<void> tmpEvent = std::async(&GnuPlot::updateChart, this, csi);
+        this->runningAsyncEvent = std::move(tmpEvent);
+    }
+}
+
+void GnuPlot::updateChart(Csi *csi)
+{
     std::stringstream ss;
     // ss << "set multiplot layout 2,1";
     ss << R"(
@@ -82,11 +98,11 @@ void GnuPlot::updateChart(Csi &csi)
     )";
 
     std::stringstream plotCmd;
-    plotCmd << "set xrange [1:" << csi.numSubCarriers << "]\n";
+    plotCmd << "set xrange [1:" << csi->numSubCarriers << "]\n";
     plotCmd << "plot";
-    for (uint32_t tx = 0; tx < csi.numTx; tx++)
+    for (uint32_t tx = 0; tx < csi->numTx; tx++)
     {
-        for (uint32_t rx = 0; rx < csi.numRx; rx++)
+        for (uint32_t rx = 0; rx < csi->numRx; rx++)
         {
             plotCmd << " '-' with lines title \"RX" << (rx + 1) << "TX" << (tx + 1) << "\", ";
         }
@@ -98,14 +114,14 @@ void GnuPlot::updateChart(Csi &csi)
     std::stringstream dataPhase;
 
     uint32_t index = 0;
-    for (uint32_t rx = 0; rx < csi.numRx; rx++)
+    for (uint32_t rx = 0; rx < csi->numRx; rx++)
     {
-        for (uint32_t tx = 0; tx < csi.numTx; tx++)
+        for (uint32_t tx = 0; tx < csi->numTx; tx++)
         {
-            for (uint32_t n = 0; n < csi.numSubCarriers; n++)
+            for (uint32_t n = 0; n < csi->numSubCarriers; n++)
             {
-                dataMagnitude << (n + 1) << " " << csi.magnitude[index] << "\n";
-                dataPhase << (n + 1) << " " << csi.phase[index] << "\n";
+                dataMagnitude << (n + 1) << " " << csi->magnitude[index] << "\n";
+                dataPhase << (n + 1) << " " << csi->phase[index] << "\n";
                 index++;
             }
             dataMagnitude << "e\n";
@@ -129,6 +145,7 @@ void GnuPlot::updateChart(Csi &csi)
     this->lastCmd = ss.str();
     fprintf(this->gnuPlotPipe, ss.str().c_str());
     fflush(this->gnuPlotPipe);
+    delete csi;
 }
 
 void GnuPlot::reload()

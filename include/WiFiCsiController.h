@@ -39,7 +39,7 @@ public:
 private:
     static int listenToCsiHandler(nl80211_state *state, nl_msg *msg, void *arg);
     static int processListenToCsiHandler(nl_msg *msg, void *arg);
-    static void printDetail(Csi &c);
+    static void printDetail(Csi *c);
     GnuPlot gnuPlot;
 };
 

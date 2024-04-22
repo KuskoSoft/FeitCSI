@@ -67,7 +67,7 @@ void CsiProcessingWindow::refresh()
     
     if (!this->csiProcessor.csiData.empty())
     {
-        gnuPlot.updateChart(*this->csiProcessor.csiData[this->currentIndex]);
+        gnuPlot.updateChartAsync(this->csiProcessor.csiData[this->currentIndex]);
     }
     
 }

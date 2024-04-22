@@ -93,35 +93,35 @@ int WiFiCsiController::processListenToCsiHandler(struct nl_msg *msg, void *arg)
             uint8_t *dataCsi = (uint8_t *)nla_data(attrs[IWL_MVM_VENDOR_ATTR_CSI_DATA]);
             memcpy(rawCsi, dataCsi, dataLength);
 
-            Csi c;
-            c.loadFromMemory(header, dataCsi);
+            Csi *c = new Csi();
+            c->loadFromMemory(header, dataCsi);
 
             if (
-                (c.channelWidth == RATE_MCS_CHAN_WIDTH_20 && Arguments::arguments.channelWidth == 20) ||
-                (c.channelWidth == RATE_MCS_CHAN_WIDTH_40 && Arguments::arguments.channelWidth == 40) ||
-                (c.channelWidth == RATE_MCS_CHAN_WIDTH_80 && Arguments::arguments.channelWidth == 80) ||
-                (c.channelWidth == RATE_MCS_CHAN_WIDTH_160 && Arguments::arguments.channelWidth == 160)
+                (c->channelWidth == RATE_MCS_CHAN_WIDTH_20 && Arguments::arguments.channelWidth == 20) ||
+                (c->channelWidth == RATE_MCS_CHAN_WIDTH_40 && Arguments::arguments.channelWidth == 40) ||
+                (c->channelWidth == RATE_MCS_CHAN_WIDTH_80 && Arguments::arguments.channelWidth == 80) ||
+                (c->channelWidth == RATE_MCS_CHAN_WIDTH_160 && Arguments::arguments.channelWidth == 160)
             
             )
             {
                 if (
-                    (c.format == RATE_MCS_LEGACY_OFDM_MSK && Arguments::arguments.format == "NOHT") ||
-                    (c.format == RATE_MCS_HT_MSK && Arguments::arguments.format == "HT") ||
-                    (c.format == RATE_MCS_VHT_MSK && Arguments::arguments.format == "VHT") ||
-                    (c.format == RATE_MCS_HE_MSK && Arguments::arguments.format == "HESU") ||
-                    (c.format == RATE_MCS_EHT_MSK && Arguments::arguments.format == "EHT")
+                    (c->format == RATE_MCS_LEGACY_OFDM_MSK && Arguments::arguments.format == "NOHT") ||
+                    (c->format == RATE_MCS_HT_MSK && Arguments::arguments.format == "HT") ||
+                    (c->format == RATE_MCS_VHT_MSK && Arguments::arguments.format == "VHT") ||
+                    (c->format == RATE_MCS_HE_MSK && Arguments::arguments.format == "HESU") ||
+                    (c->format == RATE_MCS_EHT_MSK && Arguments::arguments.format == "EHT")
                 
                 )
                 {
                     if (Arguments::arguments.verbose) {
                         printDetail(c);
                     }
-                    instance->gnuPlot.updateChart(c);
                     if ( MainController::getInstance()->udpSocket ) {
-                        c.sendUDP(MainController::getInstance()->udpSocket);
+                        c->sendUDP(MainController::getInstance()->udpSocket);
                     } else {
-                        c.save();
+                        c->save();
                     }
+                    instance->gnuPlot.updateChartAsync(c); // also delete c
                 }
             }
         }
@@ -130,13 +130,13 @@ int WiFiCsiController::processListenToCsiHandler(struct nl_msg *msg, void *arg)
     return NL_SKIP;
 }
 
-void WiFiCsiController::printDetail(Csi &c)
+void WiFiCsiController::printDetail(Csi *c)
 {
-    Logger::log(info) << "Subcarrier count: " << c.rawHeaderData.numSubCarriers << ", ";
-    Logger::log(info, true) << "RX: " << +c.rawHeaderData.numRx << ", ";
-    Logger::log(info, true) << "TX: " << +c.rawHeaderData.numTx << ", ";
+    Logger::log(info) << "Subcarrier count: " << c->rawHeaderData.numSubCarriers << ", ";
+    Logger::log(info, true) << "RX: " << +c->rawHeaderData.numRx << ", ";
+    Logger::log(info, true) << "TX: " << +c->rawHeaderData.numTx << ", ";
 
-    switch (c.channelWidth)
+    switch (c->channelWidth)
     {
     case RATE_MCS_CHAN_WIDTH_20:
         Logger::log(info, true) << "Channel width: 20, ";
@@ -151,7 +151,7 @@ void WiFiCsiController::printDetail(Csi &c)
         Logger::log(info, true) << "Channel width: 160, ";
         break;
     }
-    switch (c.format)
+    switch (c->format)
     {
     case RATE_MCS_CCK_MSK: // VERY OLD FORMAT
         Logger::log(info, true) << "Format: CCK\n";

@@ -1,6 +1,6 @@
 /*
  * FeitCSI is the tool for extracting CSI information from supported intel NICs.
- * Copyright (C) 2023 Miroslav Hutar.
+ * Copyright (C) 2023-2024 Miroslav Hutar.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,8 +22,8 @@
 #include <gtkmm.h>
 #include <gtkmm/socket.h>
 #include <Csi.h>
-
 #include <string>
+#include <future>
 
 class GnuPlot
 {
@@ -32,11 +32,14 @@ public:
     void setWindow(uint64_t id);
     void setBlank();
     void reload();
-    void updateChart(Csi &csi);
+    void updateChartAsync(Csi *csi);
 
 private:
     inline static std::string lastCmd;
     inline static FILE *gnuPlotPipe;
+    inline static std::future<void> runningAsyncEvent;
+    
+    void updateChart(Csi *csi);
 };
 
 #endif
