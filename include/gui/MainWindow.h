@@ -20,7 +20,7 @@
 #define MAIN_WINDOW_H
 
 #include <gtkmm.h>
-#include "gui/GnuPlot.h"
+#include "gui/Plot.h"
 #include "gui/CsiProcessingWindow.h"
 
 class MainWindow : public Gtk::ApplicationWindow
@@ -31,6 +31,7 @@ public:
     MainWindow(BaseObjectType *obj, Glib::RefPtr<Gtk::Builder> const &builder);
     void fatalError(std::string msg);
 
+    Glib::RefPtr<Gtk::Builder> builder;
 
 private:
     int chartWidth = 0;
@@ -44,7 +45,6 @@ private:
 
     std::map<std::string, std::string> errors;
     Glib::RefPtr<Gtk::Adjustment> consoleScrollbarAdjustment;
-    Glib::RefPtr<Gtk::Builder> builder;
     Glib::RefPtr<Gtk::MessageDialog> errorDialog;
 
     Glib::RefPtr<Gtk::Button> measureButton;
@@ -67,8 +67,7 @@ private:
     Glib::RefPtr<Gtk::TextView> console;
     Glib::RefPtr<Gtk::Label> errorMessages;
 
-    Glib::RefPtr<Gtk::Socket> chartSocket;
-    GnuPlot gnuPlot;
+    Plot plot;
     
     void closeButton();
 
@@ -103,9 +102,9 @@ private:
     void injectRepeatChange();
 
     void updateErrorMessages();
-    
+
     void measureButtonClicked();
-    
+
     void injectButtonClicked();
     
     void updateSensitivity();

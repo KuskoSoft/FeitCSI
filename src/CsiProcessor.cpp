@@ -19,7 +19,6 @@
 #include "CsiProcessor.h"
 #include "main.h"
 #include "Logger.h"
-#include "GnuPlot.h"
 #include "interpolation.h"
 #include "Arguments.h"
 

@@ -18,7 +18,6 @@
 
 #include "WiFiCsiController.h"
 #include "Csi.h"
-#include "GnuPlot.h"
 #include "MainController.h"
 #include "Arguments.h"
 
@@ -44,8 +43,6 @@ void WiFiCsiController::init()
 
 int WiFiCsiController::listenToCsi()
 {
-    gnuPlot.init();
-
     Cmd cmd{
         .id = NL80211_CMD_VENDOR,
         .idby = CIB_NETDEV,
@@ -69,7 +66,6 @@ nla_put_failure:
 
 int WiFiCsiController::processListenToCsiHandler(struct nl_msg *msg, void *arg)
 {
-    WiFiCsiController *instance = (WiFiCsiController *)arg;
     struct nlattr *attrs[MAX_CMD + 1];
     struct nlmsghdr *nlh = nlmsg_hdr(msg);
 
@@ -121,7 +117,13 @@ int WiFiCsiController::processListenToCsiHandler(struct nl_msg *msg, void *arg)
                     } else {
                         c->save();
                     }
-                    instance->gnuPlot.updateChartAsync(c); // also delete c
+                    if (Arguments::arguments.plot)
+                    {
+                        WiFiCsiController::csiQueueMutex.lock();
+                        WiFiCsiController::csiQueue.push(c);
+                        WiFiCsiController::csiQueueMutex.unlock();
+                    }
+                    
                 }
             }
         }

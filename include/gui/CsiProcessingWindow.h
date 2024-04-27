@@ -21,7 +21,6 @@
 
 #include <gtkmm.h>
 #include "CsiProcessor.h"
-#include "GnuPlot.h"
 
 class CsiProcessingWindow
 {
@@ -55,7 +54,7 @@ private:
     void processingSaveGtkButtonClicked();
 
     CsiProcessor csiProcessor;
-    GnuPlot gnuPlot;
+
     uint32_t currentIndex = 0;
 };
 

@@ -23,6 +23,8 @@
 #include "WiFIController.h"
 #include "PacketInjector.h"
 #include "gui/MainWindow.h"
+#include "gui/Plot.h"
+#include "Csi.h"
 #include "UdpSocket.h"
 #include <thread>
 
@@ -32,8 +34,16 @@ class MainController
 public:
     inline static UdpSocket *udpSocket = nullptr;
 
+    Plot *plotAmplitude;
+
+    Plot *plotPhase;
+
     static MainController *getInstance();
-    
+
+    static gint updatePlots();
+
+    void initPlots();
+
     static void deleteInstance();
 
     void runNoGui(bool detach = false);
@@ -59,6 +69,12 @@ private:
 
     inline static MainWindow *mainWindow = nullptr;
 
+    Glib::RefPtr<Gtk::Application> app;
+
+    inline static Csi *csiToPlot = nullptr;
+
+    guint updatePlotsSourceId = 0;
+
     pthread_t measureCsiThread = 0;
 
     pthread_t injectPacketThread = 0;
@@ -74,6 +90,10 @@ private:
     static void intHandler(int dummy);
 
     static void *injectPackets(void *arg);
+
+    bool measuring = false;
+
+    bool injecting = false;
     
 };
 

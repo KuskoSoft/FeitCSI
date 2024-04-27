@@ -20,7 +20,9 @@
 #define WIFI_CSI_CONTROLLER_H
 
 #include "Netlink.h"
-#include "GnuPlot.h"
+#include "Csi.h"
+#include <mutex>
+#include <queue>
 
 #define IWL_MVM_VENDOR_ATTR_CSI_HDR 0x4d
 #define IWL_MVM_VENDOR_ATTR_CSI_DATA 0x4e
@@ -33,6 +35,8 @@ public:
     void init();
     int listenToCsi();
     void enableCsi(bool enable = true);
+    inline static std::mutex csiQueueMutex;
+    inline static std::queue<Csi*> csiQueue;
 
     ~WiFiCsiController();
 
@@ -40,7 +44,6 @@ private:
     static int listenToCsiHandler(nl80211_state *state, nl_msg *msg, void *arg);
     static int processListenToCsiHandler(nl_msg *msg, void *arg);
     static void printDetail(Csi *c);
-    GnuPlot gnuPlot;
 };
 
 #endif

@@ -39,20 +39,124 @@ MainController *MainController::getInstance()
     return INSTANCE;
 }
 
+gint MainController::updatePlots()
+{
+    WiFiCsiController::csiQueueMutex.lock();
+
+    if (!WiFiCsiController::csiQueue.empty())
+    {
+        if (csiToPlot)
+        {
+            delete csiToPlot;
+        }
+        
+        csiToPlot = WiFiCsiController::csiQueue.front();
+        WiFiCsiController::csiQueue.pop();
+    }
+
+    //clear old values
+    while (!WiFiCsiController::csiQueue.empty()) {
+        delete WiFiCsiController::csiQueue.front();
+        WiFiCsiController::csiQueue.pop();
+    }
+
+    WiFiCsiController::csiQueueMutex.unlock();
+
+    if (!csiToPlot)
+    {
+        return (TRUE);
+    }
+
+    MainController *mainController = MainController::getInstance();
+
+    mainController->plotAmplitude->updateData(csiToPlot, &csiToPlot->magnitude);
+    mainController->plotPhase->updateData(csiToPlot, &csiToPlot->phase);
+
+    // force refresh, not wait on next frame redraw
+    /* GtkAllocation reg;
+    gtk_widget_get_allocation((GtkWidget *)mainController->plotAmplitude->get_parent()->gobj(), &reg);
+    cairo_region_t *creg = cairo_region_create_rectangle(&reg);
+    GdkWindow *pUnderlyingWindow = gtk_widget_get_window((GtkWidget *)mainController->plotAmplitude->get_parent()->gobj());
+    cairo_t *cr = gdk_cairo_create(pUnderlyingWindow);
+    gdk_cairo_region(cr, creg);
+    cairo_clip(cr);
+
+    gtk_widget_draw((GtkWidget *)mainController->plotAmplitude->get_parent()->gobj(), cr);
+    cairo_destroy(cr);
+    cairo_region_destroy(creg); */
+
+    return (TRUE);
+}
+
+void MainController::initPlots()
+{
+    Glib::RefPtr<Gtk::Box> plotBox = Glib::RefPtr<Gtk::Box>::cast_dynamic(this->mainWindow->builder->get_object("plotBox"));
+    MainController *mainController = MainController::getInstance();
+    mainController->plotAmplitude->yLabel = "Amplitude";
+    mainController->plotAmplitude->title = "Amplitude";
+    mainController->plotAmplitude->init(plotBox);
+    mainController->plotPhase->yLabel = "Phase (rad)";
+    mainController->plotPhase->title = "Phase";
+    mainController->plotPhase->yTicksMin = -4;
+    mainController->plotPhase->yTicksMax = 4;
+    mainController->plotPhase->init(plotBox);
+    this->updatePlotsSourceId = gdk_threads_add_idle((GSourceFunc)MainController::updatePlots, nullptr);
+}
+
 void MainController::deleteInstance()
 {
+    MainController *mainController = MainController::INSTANCE;
+    if (mainController->measuring)
+    {
+        MainController::INSTANCE->measureCsi(true);
+    }
+    if (mainController->injecting)
+    {
+        MainController::INSTANCE->injectPackets(true);
+    }
+    if (Arguments::arguments.plot)
+    {
+        MainController::INSTANCE->app->quit();
+    }
+
     delete MainController::INSTANCE;
 }
 
 void MainController::runNoGui(bool detach)
 {
     this->initInterface();
+    if (Arguments::arguments.plot)
+    {
+        gtk_init(NULL, NULL);
+        Glib::init();
+        this->plotAmplitude = new Plot();
+        this->plotPhase = new Plot();
+        this->app = Gtk::Application::create("com.kuskosoft.feitcsi");
+        std::string layout((char *)MainWindow_glade);
+        //auto builder = Gtk::Builder::create_from_file("MainWindow.glade");
+        auto builder = Gtk::Builder::create_from_string(layout);
+        builder->get_widget_derived("MainWindow", this->mainWindow);
+        this->initPlots();
+        if (Arguments::arguments.measure)
+        {
+            this->measureCsi();
+        }
+        if (Arguments::arguments.inject)
+        {
+            this->injectPackets();
+        }
+        this->app->run(*this->mainWindow);
+        return;
+    }
+
     if (Arguments::arguments.measure)
     {
+        this->measuring = true;
         pthread_create(&this->measureCsiThread, NULL, &MainController::measureCsi, NULL);
     }
     if (Arguments::arguments.inject)
     {
+        this->injecting = true;
         pthread_create(&this->injectPacketThread, NULL, &MainController::injectPackets, NULL);
     }
     if (Arguments::arguments.measure)
@@ -71,10 +175,6 @@ void MainController::runNoGui(bool detach)
             pthread_join(this->injectPacketThread, NULL);
         }
     }
-
-    if (!detach) {
-        this->deleteInstance();
-    }
 }
 
 void MainController::measureCsi(bool stop)
@@ -82,10 +182,12 @@ void MainController::measureCsi(bool stop)
     this->wifiController.setFreq(Arguments::arguments.frequency, Arguments::arguments.bandwidth.c_str());
     if (stop)
     {
+        this->measuring = false;
         pthread_cancel(this->measureCsiThread);
     }
     else
     {
+        this->measuring = true;
         pthread_create(&this->measureCsiThread, NULL, &MainController::measureCsi, NULL);
         pthread_detach(this->measureCsiThread);
     }
@@ -97,10 +199,12 @@ void MainController::injectPackets(bool stop)
     this->wifiController.setFreq(Arguments::arguments.frequency, Arguments::arguments.bandwidth.c_str());
     if (stop)
     {
+        this->injecting = false;
         pthread_cancel(this->injectPacketThread);
     }
     else
     {
+        this->injecting = true;
         pthread_create(&this->injectPacketThread, NULL, &MainController::injectPackets, NULL);
         pthread_detach(this->injectPacketThread);
     }
@@ -108,17 +212,23 @@ void MainController::injectPackets(bool stop)
 
 void MainController::runGui()
 {
+    this->initInterface();
     Arguments::arguments.plot = true;
     Arguments::arguments.verbose = true;
     Arguments::arguments.measure = false;
     Arguments::arguments.inject = false;
     gtk_init(NULL, NULL);
     Glib::init();
-    auto app = Gtk::Application::create("com.kuskosoft.feitcsi");
+    this->plotAmplitude = new Plot();
+    this->plotPhase = new Plot();
+    this->app = Gtk::Application::create("com.kuskosoft.feitcsi");
     std::string layout((char*)MainWindow_glade);
+    //auto builder = Gtk::Builder::create_from_file("MainWindow.glade");
     auto builder = Gtk::Builder::create_from_string(layout);
     builder->get_widget_derived("MainWindow", this->mainWindow);
-    app->run(*this->mainWindow);
+    this->initPlots();
+    //g_signal_connect(app, "delete-event", G_CALLBACK(MainController::deleteInstance), NULL);
+    this->app->run(*this->mainWindow);
 }
 
 void MainController::runUdpSocket()
@@ -153,7 +263,7 @@ void MainController::initInterface()
             std::this_thread::sleep_for(std::chrono::milliseconds(500)); //wait on init then set power and go next
             this->wifiController.setTxPower();
         }
-        
+
     }
     catch(const std::exception& e)
     {
@@ -226,7 +336,7 @@ void *MainController::injectPackets(void *arg)
             Logger::log(error) << e.what() << '\n';
         }
     }
-    
+
     return 0;
 }
 
@@ -262,15 +372,19 @@ void MainController::restoreState()
 }
 
 MainController::~MainController()
-{
+{    
     this->restoreState();
     if (udpSocket) {
         delete udpSocket;
+    }
+    if (csiToPlot)
+    {
+        delete csiToPlot;
     }
 }
 
 void MainController::intHandler(int dummy)
 {
-    delete MainController::INSTANCE;
+    MainController::INSTANCE->deleteInstance();
     exit(0);
 }

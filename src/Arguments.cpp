@@ -42,7 +42,7 @@ void Arguments::init()
         .injectDelay = 100000,
         .injectRepeat = 0,
         .coding = "LDPC",
-        .format = "NOHT",
+        .format = "HT",
         .inject = false,
         .measure = true,
         .mode = "measure",

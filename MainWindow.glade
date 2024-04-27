@@ -87,7 +87,7 @@
         <property name="visible">True</property>
         <property name="can-focus">False</property>
         <child>
-          <object class="GtkNotebook">
+          <object class="GtkNotebook" id="leftBar">
             <property name="visible">True</property>
             <property name="can-focus">True</property>
             <child>
@@ -819,9 +819,16 @@
             <property name="can-focus">True</property>
             <property name="orientation">vertical</property>
             <child>
-              <object class="GtkSocket" id="chartSocket">
+              <object class="GtkBox" id="plotBox">
                 <property name="visible">True</property>
-                <property name="can-focus">True</property>
+                <property name="can-focus">False</property>
+                <property name="orientation">vertical</property>
+                <child>
+                  <placeholder/>
+                </child>
+                <child>
+                  <placeholder/>
+                </child>
               </object>
               <packing>
                 <property name="resize">False</property>

@@ -29,6 +29,16 @@ MainWindow::MainWindow(BaseObjectType *obj, Glib::RefPtr<Gtk::Builder> const &bu
     set_title("FeitCSI");
     set_default_size(1000, 800);
 
+    this->signal_delete_event().connect(sigc::mem_fun(*this, &MainWindow::onWindowDelete));
+
+    if (!Arguments::arguments.gui && Arguments::arguments.plot)
+    {
+        Glib::RefPtr<Gtk::ScrolledWindow>::cast_dynamic(this->builder->get_object("consoleScrollbar"))->hide();
+        Glib::RefPtr<Gtk::Notebook>::cast_dynamic(this->builder->get_object("leftBar"))->hide();
+        return;
+    }
+    
+
     this->measureButton = Glib::RefPtr<Gtk::Button>::cast_dynamic(this->builder->get_object("measureButton"));
     this->measureButton->signal_clicked().connect(sigc::mem_fun(*this, &MainWindow::measureButtonClicked));
 
@@ -80,8 +90,6 @@ MainWindow::MainWindow(BaseObjectType *obj, Glib::RefPtr<Gtk::Builder> const &bu
 
     this->errorMessages = Glib::RefPtr<Gtk::Label>::cast_dynamic(this->builder->get_object("errorMessages"));
     
-    this->chartSocket = Glib::RefPtr<Gtk::Socket>::cast_dynamic(this->builder->get_object("chartSocket"));
-
     this->console = Glib::RefPtr<Gtk::TextView>::cast_dynamic(this->builder->get_object("console"));
     Glib::RefPtr<Gtk::ScrolledWindow> consoleScrollbar = Glib::RefPtr<Gtk::ScrolledWindow>::cast_dynamic(this->builder->get_object("consoleScrollbar"));
     this->consoleScrollbarAdjustment = consoleScrollbar->get_vadjustment();
@@ -92,12 +100,9 @@ MainWindow::MainWindow(BaseObjectType *obj, Glib::RefPtr<Gtk::Builder> const &bu
 
     Logger::guiOutput = this->console->get_buffer();
 
-    this->gnuPlot.setWindow(this->chartSocket->get_id());
-
     this->signal_check_resize().connect_notify(sigc::mem_fun(*this, &MainWindow::onResize));
 
     this->signal_show().connect(sigc::mem_fun(*this, &MainWindow::onWindowInit));
-    this->signal_delete_event().connect(sigc::mem_fun(*this, &MainWindow::onWindowDelete));
 
     this->csiProcessingWindow.init(this->builder);
 }
@@ -118,16 +123,14 @@ bool MainWindow::onWindowDelete(GdkEventAny *event)
 {
     MainController *mainController = MainController::getInstance();
     mainController->deleteInstance();
-    return 0;
+    return true;
 }
+
 
 void MainWindow::onWindowInit()
 {
     Glib::RefPtr<Gtk::Paned> socketConsolePaned = Glib::RefPtr<Gtk::Paned>::cast_dynamic(this->builder->get_object("socketConsolePaned"));
     socketConsolePaned->set_position(socketConsolePaned->get_allocated_height() * 0.8);
-    MainController *mainController = MainController::getInstance();
-    mainController->initInterface();
-    this->gnuPlot.setBlank();
 }
 
 void MainWindow::onResize()
@@ -136,21 +139,6 @@ void MainWindow::onResize()
     {
         this->consoleScrollbarAdjustment->set_value(this->consoleScrollbarAdjustment->get_upper());
         return;
-    }
-    
-    int pHeight = this->chartSocket->get_allocated_height();
-    int pWidth = this->chartSocket->get_allocated_width();
-
-    if (pHeight < 10 && pWidth < 10)
-    {
-        return;
-    }
-
-    if (pWidth != this->chartWidth || pHeight != this->chartHeight)
-    {
-        this->gnuPlot.reload();
-        this->chartWidth = pWidth;
-        this->chartHeight = pHeight;
     }
 }
 

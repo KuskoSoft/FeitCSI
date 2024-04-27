@@ -17,7 +17,6 @@
  */
 
 #include "gui/CsiProcessingWindow.h"
-#include "GnuPlot.h"
 #include "main.h"
 #include "Logger.h"
 #include "Arguments.h"
@@ -65,10 +64,10 @@ void CsiProcessingWindow::refresh()
     
     this->currentDataCount->set_text(indexLabelText);
     
-    if (!this->csiProcessor.csiData.empty())
+/*     if (!this->csiProcessor.csiData.empty())
     {
         gnuPlot.updateChartAsync(this->csiProcessor.csiData[this->currentIndex]);
-    }
+    } */
     
 }
 
