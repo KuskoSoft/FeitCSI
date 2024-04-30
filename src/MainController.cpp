@@ -179,7 +179,6 @@ void MainController::runNoGui(bool detach)
 
 void MainController::measureCsi(bool stop)
 {
-    this->wifiController.setFreq(Arguments::arguments.frequency, Arguments::arguments.bandwidth.c_str());
     if (stop)
     {
         this->measuring = false;
@@ -187,6 +186,7 @@ void MainController::measureCsi(bool stop)
     }
     else
     {
+        this->wifiController.setFreq(Arguments::arguments.frequency, Arguments::arguments.bandwidth.c_str());
         this->measuring = true;
         pthread_create(&this->measureCsiThread, NULL, &MainController::measureCsi, NULL);
         pthread_detach(this->measureCsiThread);
@@ -196,7 +196,7 @@ void MainController::measureCsi(bool stop)
 void MainController::injectPackets(bool stop)
 {
     this->wifiController.setTxPower();
-    this->wifiController.setFreq(Arguments::arguments.frequency, Arguments::arguments.bandwidth.c_str());
+    
     if (stop)
     {
         this->injecting = false;
@@ -204,6 +204,7 @@ void MainController::injectPackets(bool stop)
     }
     else
     {
+        this->wifiController.setFreq(Arguments::arguments.frequency, Arguments::arguments.bandwidth.c_str());
         this->injecting = true;
         pthread_create(&this->injectPacketThread, NULL, &MainController::injectPackets, NULL);
         pthread_detach(this->injectPacketThread);
