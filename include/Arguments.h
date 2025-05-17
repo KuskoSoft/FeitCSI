@@ -1,6 +1,6 @@
 /*
  * FeitCSI is the tool for extracting CSI information from supported intel NICs.
- * Copyright (C) 2024 Miroslav Hutar.
+ * Copyright (C) 2024-2025 Miroslav Hutar.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,8 +25,11 @@
 #include <argp.h>
 #include "main.h"
 
+#define ETH_ALEN 6
+
 struct Args
 {
+    bool strict;
     bool verbose;
     uint16_t frequency;
     bool gui = false;
@@ -48,6 +51,16 @@ struct Args
     bool measure;
     std::string mode;
     std::string ltf;
+    uint32_t modeDelay;
+    bool ftm = false;
+    bool ftmResponder = false;
+    bool ftmAsap = false;
+    uint8_t ftmBurstExp;
+    uint8_t ftmPerBurst;
+    uint16_t ftmBurstPeriod;
+    uint8_t ftmBurstDuration;
+    uint8_t mac[ETH_ALEN];
+    uint8_t ftmTargetMac[ETH_ALEN];
     std::string inputFile;
     std::map<enum processor, bool> processors;
 };
@@ -85,13 +98,22 @@ private:
         {"coding", 'c', "CODING", 0, "Coding scheme [LDPC|BCC]"},
         {"tx-power", 't', "TXPOWER", 0, "TX power of antenna in dBm [1-22]"},
         {"antenna", 'a', "ANTENNA", 0, "Transmitting antenna 1, 2 or 12 for both"},
-        {"mode", 'i', "MODE", 0, "Mode of program[measure|inject|measureinject]"},
+        {"mode", 'i', "MODE", 0, "Mode of program[measure|inject|measureinject|ftm|ftmres|injectftmres|measureftm]"},
         {"inject-delay", 'd', "INJECTDELAY", 0, "Delay between frame injections is us"},
         {"inject-repeat", 'j', "INJECTREPEAT", 0, "How many times inject frame"},
         {"verbose", 'v', 0, OPTION_ARG_OPTIONAL, "Produce verbose output"},
         {"plot", 'p', 0, OPTION_ARG_OPTIONAL, "Plot CSI data"},
         {"gui", 'x', 0, OPTION_ARG_OPTIONAL, "Run application in GUI"},
         {"udp-socket", 'u', 0, OPTION_ARG_OPTIONAL, "Run application and listen to UDP"},
+        {"ftm-asap", 'b', 0, OPTION_ARG_OPTIONAL, "FTM asap mode"},
+        {"ftm-burst-exp", 'q', "FTMBURSTEXP", 0, "FTM burst exponent"},
+        {"ftm-per-burst", 'e', "FTMPERBURST", 0, "FTM samples per burst"},
+        {"ftm-burst-period", 'h', "FTMBURSTPERIOD", 0, "FTM burst period"},
+        {"ftm-burst-duration", 'k', "FTMBURTSDURATION", 0, "FTM burst duration"},
+        {"ftm-mac", 'n', "FTMMAC", 0, "FTM target MAC address xx:xx:xx:xx:xx:xx"},
+        {"mode-delay", 'y', "SWAPTIME", 0, "Delay in ms between inject and ftm responder or measure and ftm initiator when modes are injectftmres|measureftm"},
+        {"strict", 'z', 0, OPTION_ARG_OPTIONAL, "Strict mode: filter out values that do not contain a specific MCS"},
+        {"mac", '#', "MAC", 0, "Default NICs MAC will be change to providing MAC xx:xx:xx:xx:xx:xx"},
         {0}};
 };
 

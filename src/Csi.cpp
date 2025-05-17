@@ -1,6 +1,6 @@
 /*
  * FeitCSI is the tool for extracting CSI information from supported intel NICs.
- * Copyright (C) 2023-2024 Miroslav Hutar.
+ * Copyright (C) 2023-2025 Miroslav Hutar.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -58,6 +58,7 @@ void Csi::loadFromMemory(uint8_t *pHeader, uint8_t *pRawCsiData)
     memcpy(&this->rawHeaderData, pHeader, CSI_HEADER_LENGTH);
     this->rawCsiData = new uint8_t[this->rawHeaderData.csiDataSize];
     memcpy(this->rawCsiData, pRawCsiData, this->rawHeaderData.csiDataSize);
+    //this->rawHeaderData.timestamp = (uint64_t)std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
     this->processRawCsi();
 }

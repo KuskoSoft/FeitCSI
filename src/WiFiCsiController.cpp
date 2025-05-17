@@ -1,6 +1,6 @@
 /*
  * FeitCSI is the tool for extracting CSI information from supported intel NICs.
- * Copyright (C) 2023-2024 Miroslav Hutar.
+ * Copyright (C) 2023-2025 Miroslav Hutar.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -109,24 +109,35 @@ int WiFiCsiController::processListenToCsiHandler(struct nl_msg *msg, void *arg)
                 
                 )
                 {
-                    if (Arguments::arguments.verbose) {
-                        printDetail(c);
-                    }
-                    if ( MainController::getInstance()->udpSocket ) {
-                        c->sendUDP(MainController::getInstance()->udpSocket);
-                    } else {
-                        c->save();
-                    }
-                    if (Arguments::arguments.plot)
+                    printf("masm csi\n");
+                    if (!Arguments::arguments.strict || (Arguments::arguments.strict && (c->rawHeaderData.rateNflag & RATE_LEGACY_RATE_MSK) == Arguments::arguments.mcs))
                     {
-                        WiFiCsiController::csiQueueMutex.lock();
-                        WiFiCsiController::csiQueue.push(c);
-                        WiFiCsiController::csiQueueMutex.unlock();
+                        if (Arguments::arguments.verbose) {
+                            printDetail(c);
+                        }
+                        if ( MainController::getInstance()->udpSocket ) {
+                            c->sendUDP(MainController::getInstance()->udpSocket);
+                        } else {
+                            c->save();
+                        }
+                        if (Arguments::arguments.plot)
+                        {
+                            WiFiCsiController::csiQueueMutex.lock();
+                            WiFiCsiController::csiQueue.push(c);
+                            WiFiCsiController::csiQueueMutex.unlock();
+                        }
                     }
                     
                 }
             }
         }
+    }
+
+    WiFiCsiController *wcc = (WiFiCsiController*) arg;
+    auto now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    if (wcc->stopTime != 0 && wcc->stopTime < now)
+    {
+        return NL_OK;
     }
 
     return NL_SKIP;
@@ -161,22 +172,17 @@ void WiFiCsiController::printDetail(Csi *c)
     case RATE_MCS_LEGACY_OFDM_MSK:
         Logger::log(info, true) << "Format: LEGACY_OFDM\n";
         break;
-        break;
     case RATE_MCS_HT_MSK:
         Logger::log(info, true) << "Format: HT\n";
-        break;
         break;
     case RATE_MCS_VHT_MSK:
         Logger::log(info, true) << "Format: VHT\n";
         break;
-        break;
     case RATE_MCS_HE_MSK:
         Logger::log(info, true) << "Format: HE\n";
         break;
-        break;
     case RATE_MCS_EHT_MSK:
         Logger::log(info, true) << "Format: EHT\n";
-        break;
         break;
     }
 }

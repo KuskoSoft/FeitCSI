@@ -1,6 +1,6 @@
 /*
  * FeitCSI is the tool for extracting CSI information from supported intel NICs.
- * Copyright (C) 2023-2024 Miroslav Hutar.
+ * Copyright (C) 2023-2025 Miroslav Hutar.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,12 +27,14 @@
 
 #define CSI_HEADER_LENGTH 272
 
-struct RawHeaderData
+struct __attribute__((__packed__)) RawHeaderData
 {
     uint32_t csiDataSize;
     uint32_t space4;
     uint32_t ftmClock;
-    uint8_t space12[34];
+    //uint8_t space12[34];
+    uint64_t timestamp;
+    uint8_t space20[26];
     uint8_t numRx;
     uint8_t numTx;
     uint8_t space48[4];

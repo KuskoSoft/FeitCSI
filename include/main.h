@@ -1,6 +1,6 @@
 /*
  * FeitCSI is the tool for extracting CSI information from supported intel NICs.
- * Copyright (C) 2023-2024 Miroslav Hutar.
+ * Copyright (C) 2023-2025 Miroslav Hutar.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,7 +19,8 @@
 #ifndef MAIN_H
 #define MAIN_H
 
-#define MONITOR_INTERFACE_NAME "mon0"
+#define MONITOR_INTERFACE_NAME "FeitCSImon"
+#define AP_INTERFACE_NAME "FeitCSIap"
 
 enum processor 
 {

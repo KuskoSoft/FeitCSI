@@ -1,6 +1,6 @@
 /*
  * FeitCSI is the tool for extracting CSI information from supported intel NICs.
- * Copyright (C) 2023 Miroslav Hutar.
+ * Copyright (C) 2023-2025 Miroslav Hutar.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,7 +27,7 @@
 
 void Netlink::init()
 {
-    /* int err =  */ this->nlInit(&this->nlstate);
+        /* int err =  */ this->nlInit(&this->nlstate);
     // TODO if error
 }
 
@@ -127,6 +127,7 @@ int Netlink::nlExecCommand(Cmd &cmd)
     nl_socket_set_cb(this->nlstate.nl_sock, s_cb);
 
     err = nl_send_auto_complete(this->nlstate.nl_sock, msg);
+    
     if (err < 0)
         goto out;
 
@@ -145,7 +146,6 @@ int Netlink::nlExecCommand(Cmd &cmd)
     {
         errMsg = "command failed: " + std::string(strerror(-err)) + std::to_string(err) + "\n";
     }
-
 out:
     nl_cb_put(cb);
     nl_cb_put(s_cb);

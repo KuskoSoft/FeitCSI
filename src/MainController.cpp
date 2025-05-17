@@ -1,6 +1,6 @@
 /*
  * FeitCSI is the tool for extracting CSI information from supported intel NICs.
- * Copyright (C) 2023-2024 Miroslav Hutar.
+ * Copyright (C) 2023-2025 Miroslav Hutar.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@
 #include "Logger.h"
 #include "gui/MainWindow.h"
 #include "layout.h"
+#include "WiFiFtmController.h"
 #include <iostream>
 #include <chrono>
 #include <thread>
@@ -137,11 +138,11 @@ void MainController::runNoGui(bool detach)
         auto builder = Gtk::Builder::create_from_string(layout);
         builder->get_widget_derived("MainWindow", this->mainWindow);
         this->initPlots();
-        if (Arguments::arguments.measure)
+        if (Arguments::arguments.measure && !Arguments::arguments.ftm)
         {
             this->measureCsi();
         }
-        if (Arguments::arguments.inject)
+        if (Arguments::arguments.inject && !Arguments::arguments.ftmResponder)
         {
             this->injectPackets();
         }
@@ -149,17 +150,27 @@ void MainController::runNoGui(bool detach)
         return;
     }
 
-    if (Arguments::arguments.measure)
+    if (Arguments::arguments.measure && !Arguments::arguments.ftm)
     {
         this->measuring = true;
         pthread_create(&this->measureCsiThread, NULL, &MainController::measureCsi, NULL);
     }
-    if (Arguments::arguments.inject)
+    if (Arguments::arguments.inject && !Arguments::arguments.ftmResponder)
     {
         this->injecting = true;
         pthread_create(&this->injectPacketThread, NULL, &MainController::injectPackets, NULL);
     }
-    if (Arguments::arguments.measure)
+    if (Arguments::arguments.ftm)
+    {
+        this->ftmEnabled = true;
+        pthread_create(&this->ftmThread, NULL, &MainController::ftm, NULL);
+    }
+    if (Arguments::arguments.ftmResponder)
+    {
+        this->ftmResponderEnabled = true;
+        pthread_create(&this->ftmResponderThread, NULL, &MainController::ftmResponder, NULL);
+    }
+    if (Arguments::arguments.measure && !Arguments::arguments.ftm)
     {
         if (detach) {
             pthread_detach(this->measureCsiThread);
@@ -167,12 +178,34 @@ void MainController::runNoGui(bool detach)
             pthread_join(this->measureCsiThread, NULL);
         }
     }
-    if (Arguments::arguments.inject)
+    if (Arguments::arguments.inject && !Arguments::arguments.ftmResponder)
     {
         if (detach) {
             pthread_detach(this->injectPacketThread);
         } else {
             pthread_join(this->injectPacketThread, NULL);
+        }
+    }
+    if (Arguments::arguments.ftm)
+    {
+        if (detach)
+        {
+            pthread_detach(this->ftmThread);
+        }
+        else
+        {
+            pthread_join(this->ftmThread, NULL);
+        }
+    }
+    if (Arguments::arguments.ftmResponder)
+    {
+        if (detach)
+        {
+            pthread_detach(this->ftmResponderThread);
+        }
+        else
+        {
+            pthread_join(this->ftmResponderThread, NULL);
         }
     }
 }
@@ -195,8 +228,6 @@ void MainController::measureCsi(bool stop)
 
 void MainController::injectPackets(bool stop)
 {
-    this->wifiController.setTxPower();
-    
     if (stop)
     {
         this->injecting = false;
@@ -256,15 +287,10 @@ void MainController::initInterface()
             this->bkpInterfaces.push_back(interface);
             this->wifiController.removeInterface(NULL, interface.ifIndex);
         }
-        this->wifiController.addMonitorDevice(MONITOR_INTERFACE_NAME, NL80211_IFTYPE_MONITOR);
-        this->wifiController.setInterfaceUpDown(MONITOR_INTERFACE_NAME, true);
-        this->wifiController.setFreq(Arguments::arguments.frequency, Arguments::arguments.bandwidth.c_str());
-        if (!MainController::mainWindow)
-        {
-            std::this_thread::sleep_for(std::chrono::milliseconds(500)); //wait on init then set power and go next
-            this->wifiController.setTxPower();
-        }
-
+        this->wifiController.createMonitorInteface();
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        this->wifiController.createApInteface();
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
     catch(const std::exception& e)
     {
@@ -285,9 +311,163 @@ void *MainController::measureCsi(void *arg)
 {
     try
     {
+        MainController::getInstance()->wifiController.setInterfaceUpDown(AP_INTERFACE_NAME, false);
+        MainController::getInstance()->wifiController.setInterfaceUpDown(MONITOR_INTERFACE_NAME, true);
         WiFiCsiController wcs;
         wcs.init();
         wcs.listenToCsi();
+    }
+    catch (const std::exception &e)
+    {
+        if (MainController::mainWindow)
+        {
+            MainController::mainWindow->fatalError(e.what());
+        }
+        else
+        {
+            Logger::log(error) << e.what() << '\n';
+        }
+    }
+
+    return 0;
+}
+
+void *MainController::ftm(void *arg)
+{
+    bool firstRun = true;
+    try
+    {
+        MainController::getInstance()->wifiController.setInterfaceUpDown(AP_INTERFACE_NAME, true);
+        WiFiFtmController wft;
+        wft.init();
+        if (Arguments::arguments.measure)
+        {
+            uint64_t startFtmTime = 0;
+            while (1)
+            {
+                std::this_thread::sleep_for(std::chrono::microseconds(Arguments::arguments.injectDelay));
+                try
+                {
+                    wft.startInitiator();
+                }
+                catch(const std::exception& e)
+                {
+                    std::cerr << e.what() << '\n';
+                }
+                
+                
+                if (wft.lastRttIsSuccess && firstRun)
+                {
+                    firstRun = false;
+                    startFtmTime = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+                }
+
+                uint64_t now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+                if ((startFtmTime + (Arguments::arguments.modeDelay / 2)) > now)
+                {
+                    continue;
+                }
+
+                if (!wft.lastRttIsSuccess && !firstRun)
+                {
+                    MainController::getInstance()->measureCsi(false);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(Arguments::arguments.modeDelay));
+                    MainController::getInstance()->measureCsi(true);
+                    WiFiCsiController::enableCsi(false);
+                    firstRun = true;
+                    MainController::getInstance()->wifiController.setInterfaceUpDown(MONITOR_INTERFACE_NAME, false);
+                    MainController::getInstance()->wifiController.setInterfaceUpDown(AP_INTERFACE_NAME, true);
+                }
+            }
+        }
+        else
+        {
+            if (Arguments::arguments.injectRepeat)
+            {
+                for (uint32_t i = 0; i < Arguments::arguments.injectRepeat; i++)
+                {
+                    wft.startInitiator();
+                    std::this_thread::sleep_for(std::chrono::microseconds(Arguments::arguments.injectDelay));
+                }
+            }
+            else
+            {
+                while (true)
+                {
+                    wft.startInitiator();
+                    std::this_thread::sleep_for(std::chrono::microseconds(Arguments::arguments.injectDelay));
+                }
+            }
+        }
+    }
+    catch (const std::exception &e)
+    {
+        if (MainController::mainWindow)
+        {
+            MainController::mainWindow->fatalError(e.what());
+        }
+        else
+        {
+            Logger::log(error) << e.what() << '\n';
+        }
+    }
+
+    return 0;
+}
+
+void *MainController::ftmResponder(void *arg)
+{
+    WiFiFtmController wft;
+    wft.init();
+    try
+    {
+        if (Arguments::arguments.inject)
+        {
+            while (true)
+            {
+                MainController::getInstance()->injectPackets(false);
+                std::this_thread::sleep_for(std::chrono::milliseconds(Arguments::arguments.modeDelay));
+                MainController::getInstance()->injectPackets(true);
+                MainController::getInstance()->wifiController.setInterfaceUpDown(MONITOR_INTERFACE_NAME, false);
+
+                MainController::getInstance()->wifiController.setInterfaceUpDown(AP_INTERFACE_NAME, true);
+                MainController::getInstance()->wifiController.getInterfaceInfo(AP_INTERFACE_NAME);
+                while (MainController::getInstance()->wifiController.currentInterfaceInfo.freq == 0)
+                {
+                    try
+                    {
+                        wft.startResponder();
+                    }
+                    catch (const std::exception &e)
+                    {
+                        // Just ignore.. wait on network up
+                    }
+                    MainController::getInstance()->wifiController.getInterfaceInfo(AP_INTERFACE_NAME);
+                }
+                std::this_thread::sleep_for(std::chrono::milliseconds(Arguments::arguments.modeDelay));
+            }
+        } else
+        {
+            while(MainController::getInstance()->wifiController.currentInterfaceInfo.freq == 0) {
+                try
+                {
+                    wft.startResponder();
+                }
+                catch(const std::exception& e)
+                {
+                    //Just ignore.. wait on network up
+                }
+                MainController::getInstance()->wifiController.getInterfaceInfo(AP_INTERFACE_NAME);
+            }
+            if (Arguments::arguments.verbose)
+            {
+                Logger::log(info) << "FTM responder was started\n";
+            }
+        }
+        while (1)
+        {
+            sleep(1);
+        }
     }
     catch (const std::exception &e)
     {
@@ -308,6 +488,8 @@ void *MainController::injectPackets(void *arg)
 {
     try
     {
+        MainController::getInstance()->wifiController.setInterfaceUpDown(AP_INTERFACE_NAME, false);
+        MainController::getInstance()->wifiController.setInterfaceUpDown(MONITOR_INTERFACE_NAME, true);
         PacketInjector pi;
         if (Arguments::arguments.injectRepeat)
         {
@@ -355,13 +537,14 @@ void MainController::restoreState()
     }
 
     mainController->wifiController.removeInterface(MONITOR_INTERFACE_NAME);
+    mainController->wifiController.removeInterface(AP_INTERFACE_NAME);
     for (InterfaceInfo interface : mainController->bkpInterfaces)
     {
         if (Arguments::arguments.verbose)
         {
             Logger::log(info) << "Recovering interface " << interface.ifName << "\n";
         }
-        mainController->wifiController.addMonitorDevice(interface.ifName.c_str(), (nl80211_iftype)interface.ifType);
+        mainController->wifiController.addDevice(interface.ifName.c_str(), (nl80211_iftype)interface.ifType);
     }
     mainController->bkpInterfaces.clear();
     mainController->wifiController.interfaces.clear();

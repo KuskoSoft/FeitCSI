@@ -1,6 +1,6 @@
 /*
  * FeitCSI is the tool for extracting CSI information from supported intel NICs.
- * Copyright (C) 2023-2024 Miroslav Hutar.
+ * Copyright (C) 2023-2025 Miroslav Hutar.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -107,20 +107,34 @@ void WiFIController::getInterfaces()
     this->nlExecCommand(cmd);
 }
 
+void WiFIController::getInterfaceInfo(const char *ifname)
+{
+    Cmd cmd{
+        .id = NL80211_CMD_GET_INTERFACE,
+        .idby = CIB_NETDEV,
+        .nlFlags = 0,
+        .device = if_nametoindex(ifname),
+        .handler = NULL,
+        .valid_handler = this->processGetInterfaceInfoHandler,
+    };
+
+    this->nlExecCommand(cmd);
+}
+
 void WiFIController::setTxPower()
 {
     Cmd cmd{
         .id = NL80211_CMD_SET_WIPHY,
         .idby = CIB_NETDEV,
         .nlFlags = 0,
-        .device = if_nametoindex(MONITOR_INTERFACE_NAME),
+        .device = if_nametoindex(this->currentDeviceName.c_str()),
         .handler = this->setTxPowerHandler,
     };
 
     this->nlExecCommand(cmd);
 }
 
-void WiFIController::addMonitorDevice(const char *name, const nl80211_iftype type)
+void WiFIController::addDevice(const char *name, const nl80211_iftype type)
 {
     if (this->phys.empty())
     {
@@ -135,7 +149,7 @@ void WiFIController::addMonitorDevice(const char *name, const nl80211_iftype typ
         .idby = CIB_PHY,
         .nlFlags = 0,
         .device = this->phys[0],
-        .handler = this->processAddMonitorDeviceHandler,
+        .handler = this->processaddDeviceHandler,
         .valid_handler = NULL,
         .args = settings,
     };
@@ -166,6 +180,7 @@ int WiFIController::setInterfaceUpDown(const char *ifName, bool up)
     if (up)
     {
         ifr.ifr_flags |= IFF_UP;
+        this->currentDeviceName = ifName;
     }
     else
     {
@@ -196,7 +211,7 @@ void WiFIController::setFreq(uint16_t freq, const char *bw)
         .id = NL80211_CMD_SET_WIPHY,
         .idby = CIB_NETDEV,
         .nlFlags = 0,
-        .device = if_nametoindex(MONITOR_INTERFACE_NAME),
+        .device = if_nametoindex(this->currentDeviceName.c_str()),
         .handler = processSetFreq,
         .valid_handler = NULL,
         .args = settings,
@@ -215,6 +230,48 @@ void WiFIController::removeInterface(const char *name, int ifIndex)
         .valid_handler = NULL,
     };
     this->nlExecCommand(cmd);
+}
+
+void WiFIController::createMonitorInteface()
+{
+    this->addDevice(MONITOR_INTERFACE_NAME, NL80211_IFTYPE_MONITOR);
+    while (this->currentInterfaceInfo.freq != Arguments::arguments.frequency)
+    {
+        try
+        {
+            this->setInterfaceUpDown(MONITOR_INTERFACE_NAME, true);
+            this->setFreq(Arguments::arguments.frequency, Arguments::arguments.bandwidth.c_str());
+        }
+        catch (const std::exception &e)
+        {
+            // Just skip
+        }
+
+        this->getInterfaceInfo(MONITOR_INTERFACE_NAME);
+    }
+    this->setTxPower();
+}
+
+void WiFIController::createApInteface()
+{
+    this->addDevice(AP_INTERFACE_NAME, NL80211_IFTYPE_MONITOR);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    while (this->currentInterfaceInfo.ifType != NL80211_IFTYPE_AP)
+    {
+        try
+        {
+            this->setInterfaceUpDown(MONITOR_INTERFACE_NAME, false);
+            this->setApMode();
+        }
+        catch (const std::exception &e)
+        {
+            // Just skip
+        }
+
+        this->getInterfaceInfo(AP_INTERFACE_NAME);
+    }
+    this->setInterfaceUpDown(AP_INTERFACE_NAME, true);
+    this->setTxPower();
 }
 
 void WiFIController::getPhys()
@@ -414,10 +471,10 @@ nla_put_failure:
     return -ENOBUFS;
 }
 
-int WiFIController::setTxPowerHandler(nl80211_state * state, nl_msg * msg, void * arg)
+int WiFIController::setTxPowerHandler(nl80211_state *state, nl_msg *msg, void *arg)
 {
     enum nl80211_tx_power_setting type = NL80211_TX_POWER_FIXED;
-    int mbm = Arguments::arguments.txPower * 100; //dBm to mbm *100
+    int mbm = Arguments::arguments.txPower * 100; // dBm to mbm *100
 
     NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_TX_POWER_SETTING, type);
     NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_TX_POWER_LEVEL, mbm);
@@ -428,7 +485,7 @@ nla_put_failure:
     return -ENOBUFS;
 }
 
-int WiFIController::processAddMonitorDeviceHandler(struct nl80211_state *state, struct nl_msg *msg, void *arg)
+int WiFIController::processaddDeviceHandler(struct nl80211_state *state, struct nl_msg *msg, void *arg)
 {
     void **settings = (void **)arg;
     const char *name = (const char *)settings[0];
@@ -436,6 +493,8 @@ int WiFIController::processAddMonitorDeviceHandler(struct nl80211_state *state, 
 
     NLA_PUT_STRING(msg, NL80211_ATTR_IFNAME, name);
     NLA_PUT_U32(msg, NL80211_ATTR_IFTYPE, *type);
+    NLA_PUT(msg, NL80211_ATTR_MAC, ETH_ALEN, Arguments::arguments.mac);
+
     return 0;
 nla_put_failure:
     return -ENOBUFS;
@@ -592,6 +651,104 @@ int WiFIController::processGetInterfacesHandler(struct nl_msg *msg, void *arg)
     return NL_OK;
 }
 
+int WiFIController::processGetInterfaceInfoHandler(struct nl_msg *msg, void *arg)
+{
+    struct genlmsghdr *gnlh = (genlmsghdr *)nlmsg_data(nlmsg_hdr(msg));
+    struct nlattr *tb_msg[NL80211_ATTR_MAX + 1];
+
+    nla_parse(tb_msg, NL80211_ATTR_MAX, genlmsg_attrdata(gnlh, 0),
+              genlmsg_attrlen(gnlh, 0), NULL);
+    WiFIController *wc = (WiFIController *)arg;
+
+    if (tb_msg[NL80211_ATTR_IFNAME])
+    {
+        wc->currentInterfaceInfo.ifName = nla_get_string(tb_msg[NL80211_ATTR_IFNAME]);
+    }
+    else
+    {
+        wc->currentInterfaceInfo.ifName = "Unnamed/non-netdev interface";
+        return NL_OK;
+    }
+
+    if (tb_msg[NL80211_ATTR_IFINDEX])
+    {
+        wc->currentInterfaceInfo.ifIndex = nla_get_u32(tb_msg[NL80211_ATTR_IFINDEX]);
+    }
+    else
+    {
+        wc->currentInterfaceInfo.ifIndex = 0;
+    }
+
+    if (tb_msg[NL80211_ATTR_WDEV])
+    {
+        wc->currentInterfaceInfo.wdev = (uint64_t)nla_get_u64(tb_msg[NL80211_ATTR_WDEV]);
+    }
+    else
+    {
+        wc->currentInterfaceInfo.wdev = 0;
+    }
+
+    if (tb_msg[NL80211_ATTR_MAC])
+    {
+        wc->currentInterfaceInfo.mac = wc->macN2a((const unsigned char *)nla_data(tb_msg[NL80211_ATTR_MAC]));
+    }
+    else
+    {
+        wc->currentInterfaceInfo.mac = "";
+    }
+
+    if (tb_msg[NL80211_ATTR_SSID])
+    {
+        wc->currentInterfaceInfo.ssid = (const char *)nla_data(tb_msg[NL80211_ATTR_SSID]);
+    }
+    else
+    {
+        wc->currentInterfaceInfo.ssid = "";
+    }
+
+    if (tb_msg[NL80211_ATTR_IFTYPE])
+    {
+        wc->currentInterfaceInfo.ifType = nla_get_u32(tb_msg[NL80211_ATTR_IFTYPE]);
+    }
+    else
+    {
+        wc->currentInterfaceInfo.ifType = 0;
+    }
+
+    if (tb_msg[NL80211_ATTR_WIPHY])
+    {
+        wc->currentInterfaceInfo.wiphy = nla_get_u32(tb_msg[NL80211_ATTR_WIPHY]);
+    }
+    else
+    {
+        wc->currentInterfaceInfo.wiphy = 0;
+    }
+
+    if (tb_msg[NL80211_ATTR_WIPHY_FREQ])
+    {
+        wc->currentInterfaceInfo.freq = nla_get_u32(tb_msg[NL80211_ATTR_WIPHY_FREQ]);
+        wc->currentInterfaceInfo.channel = wc->freqToCHannel(wc->currentInterfaceInfo.freq);
+    }
+    else
+    {
+        wc->currentInterfaceInfo.freq = 0;
+        wc->currentInterfaceInfo.channel = 0;
+    }
+
+    if (tb_msg[NL80211_ATTR_WIPHY_TX_POWER_LEVEL])
+    {
+        int32_t txp = nla_get_u32(tb_msg[NL80211_ATTR_WIPHY_TX_POWER_LEVEL]);
+        wc->currentInterfaceInfo.txdBm = txp % 100;
+        wc->currentInterfaceInfo.txdBm += txp / 100;
+    }
+    else
+    {
+        wc->currentInterfaceInfo.txdBm = 0;
+    }
+
+    return NL_OK;
+}
+
 std::string WiFIController::macN2a(const unsigned char *arg)
 {
     int i, l;
@@ -659,4 +816,26 @@ int WiFIController::phyLookup(char *name)
     buf[pos] = '\0';
     close(fd);
     return atoi(buf);
+}
+
+int WiFIController::setApMode()
+{
+    Cmd cmd{
+        .id = NL80211_CMD_SET_INTERFACE,
+        .idby = CIB_NETDEV,
+        .nlFlags = 0,
+        .device = if_nametoindex(AP_INTERFACE_NAME),
+        .handler = this->setApModeHandler,
+        .valid_handler = NULL,
+    };
+
+    return this->nlExecCommand(cmd);
+}
+
+int WiFIController::setApModeHandler(struct nl80211_state *state, struct nl_msg *msg, void *arg)
+{
+    NLA_PUT_U32(msg, NL80211_ATTR_IFTYPE, NL80211_IFTYPE_AP);
+    return 0;
+nla_put_failure:
+    return -ENOBUFS;
 }

@@ -1,6 +1,6 @@
 /*
  * FeitCSI is the tool for extracting CSI information from supported intel NICs.
- * Copyright (C) 2023-2024 Miroslav Hutar.
+ * Copyright (C) 2023-2025 Miroslav Hutar.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,9 +34,10 @@ class WiFiCsiController : public Netlink
 public:
     void init();
     int listenToCsi();
-    void enableCsi(bool enable = true);
+    static void enableCsi(bool enable = true);
     inline static std::mutex csiQueueMutex;
     inline static std::queue<Csi*> csiQueue;
+    int64_t stopTime = 0;
 
     ~WiFiCsiController();
 

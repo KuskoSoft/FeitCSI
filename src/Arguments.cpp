@@ -1,6 +1,6 @@
 /*
  * FeitCSI is the tool for extracting CSI information from supported intel NICs.
- * Copyright (C) 2024 Miroslav Hutar.
+ * Copyright (C) 2024-2025 Miroslav Hutar.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,6 +27,7 @@ const char *argp_program_bug_address = "https://github.com/KuskoSoft/FeitCSI/iss
 void Arguments::init()
 {
     Arguments::arguments = {
+        .strict = false,
         .verbose = false,
         .frequency = 2412,
         .gui = false,
@@ -47,6 +48,15 @@ void Arguments::init()
         .measure = true,
         .mode = "measure",
         .ltf = "1xLTF+0.8",
+        .modeDelay = 3000,
+        .ftm = false,
+        .ftmResponder = false,
+        .ftmAsap = false,
+        .ftmBurstExp = 0,
+        .ftmPerBurst = 0,
+        .ftmBurstPeriod = 0,
+        .ftmBurstDuration = 0,
+        .mac = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55}
     };
 }
 
@@ -67,6 +77,9 @@ error_t Arguments::parse_opt(int key, char *arg, struct argp_state *state)
     {
     case 'v':
         args->verbose = true;
+        break;
+    case 'z':
+        args->strict = true;
         break;
     case 'x':
         args->gui = true;
@@ -94,9 +107,30 @@ error_t Arguments::parse_opt(int key, char *arg, struct argp_state *state)
             args->measure = true;
             args->inject = true;
         }
+        else if (args->mode == "measureftm")
+        {
+            args->measure = true;
+            args->ftm = true;
+        }
+        else if (args->mode == "ftm")
+        {
+            args->measure = false;
+            args->ftm = true;
+        }
+        else if (args->mode == "ftmres")
+        {
+            args->measure = false;
+            args->ftmResponder = true;
+        }
+        else if (args->mode == "injectftmres")
+        {
+            args->measure = false;
+            args->ftmResponder = true;
+            args->inject = true;
+        }
         else
         {
-            argp_failure(state, 1, 0, "Bad mode. Possible values [measure|inject|measureinject]");
+            argp_failure(state, 1, 0, "Bad mode. Possible values [measure|inject|measureinject|ftm]");
             exit(ARGP_ERR_UNKNOWN);
         }
         break;
@@ -149,6 +183,17 @@ error_t Arguments::parse_opt(int key, char *arg, struct argp_state *state)
             argp_failure(state, 1, 0, "Bad LTF. Possible values [2xLTF+0.8|2xLTF+1.6|4xLTF+3.2|4xLTF+0.8]");
             exit(ARGP_ERR_UNKNOWN);
         }
+        break;
+    }
+    case 'y':
+    {
+        int modeDelay = std::atoi(arg);
+        if (modeDelay <= 0)
+        {
+            argp_failure(state, 1, 0, "Mode delay is not correct number");
+            exit(ARGP_ERR_UNKNOWN);
+        }
+        args->modeDelay = (uint32_t)modeDelay;
         break;
     }
     case 'g':
@@ -257,6 +302,74 @@ error_t Arguments::parse_opt(int key, char *arg, struct argp_state *state)
     case 'o':
         args->outputFile = arg;
         break;
+    case 'b':
+        args->ftmAsap = true;
+        break;
+    case 'q':
+    {
+        int f = std::atoi(arg);
+        if (f <= 0)
+        {
+            argp_failure(state, 1, 0, "FTM burst exponent is not correct");
+            exit(ARGP_ERR_UNKNOWN);
+        }
+        args->ftmBurstExp = (uint8_t)f;
+        break;
+    }
+    case 'e':
+    {
+        int f = std::atoi(arg);
+        if (f <= 0)
+        {
+            argp_failure(state, 1, 0, "FTM per burst is not correct");
+            exit(ARGP_ERR_UNKNOWN);
+        }
+        args->ftmPerBurst = (uint8_t)f;
+        break;
+    }
+    case 'h':
+    {
+        int f = std::atoi(arg);
+        if (f <= 0)
+        {
+            argp_failure(state, 1, 0, "FTM burst period is not correct");
+            exit(ARGP_ERR_UNKNOWN);
+        }
+        args->ftmBurstPeriod = (uint16_t)f;
+        break;
+    }
+    case 'k':
+    {
+        int f = std::atoi(arg);
+        if (f <= 0)
+        {
+            argp_failure(state, 1, 0, "FTM burst duration is not correct");
+            exit(ARGP_ERR_UNKNOWN);
+        }
+        args->ftmBurstDuration = (uint8_t)f;
+        break;
+    }
+    case '#':
+    {
+        int res = sscanf(arg, "%2hhx:%2hhx:%2hhx:%2hhx:%2hhx:%2hhx", &args->mac[0], &args->mac[1], &args->mac[2], &args->mac[3], &args->mac[4], &args->mac[5]);
+        if (res != ETH_ALEN)
+        {
+            argp_failure(state, 1, 0, "Bad mac address");
+            exit(ARGP_ERR_UNKNOWN);
+        }
+        break;
+    }
+    case 'n':
+    {
+        int res = sscanf(arg, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+                         &args->ftmTargetMac[0], &args->ftmTargetMac[1], &args->ftmTargetMac[2], &args->ftmTargetMac[3], &args->ftmTargetMac[4], &args->ftmTargetMac[5]);
+        if (res != ETH_ALEN)
+        {
+            argp_failure(state, 1, 0, "FTM target mac address is not correct");
+            exit(ARGP_ERR_UNKNOWN);
+        }
+        break;
+    }
     case ARGP_KEY_ARG:
     case ARGP_KEY_END:
         if (args->frequency == 0 ||

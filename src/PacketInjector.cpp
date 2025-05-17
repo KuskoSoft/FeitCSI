@@ -1,6 +1,6 @@
 /*
  * FeitCSI is the tool for extracting CSI information from supported intel NICs.
- * Copyright (C) 2023-2024 Miroslav Hutar.
+ * Copyright (C) 2023-2025 Miroslav Hutar.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -175,7 +175,7 @@ void PacketInjector::send(uint32_t rateNFlags)
     char szErrbuf[500];
 
     if (ppcap == nullptr) {
-        ppcap = pcap_open_live("mon0", 800, 1, 20, szErrbuf);
+        ppcap = pcap_open_live(MONITOR_INTERFACE_NAME, 800, 1, 20, szErrbuf);
     }
 
     int r = pcap_inject(ppcap, sendBuffer, totalSize);

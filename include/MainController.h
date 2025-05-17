@@ -1,6 +1,6 @@
 /*
  * FeitCSI is the tool for extracting CSI information from supported intel NICs.
- * Copyright (C) 2023-2024 Miroslav Hutar.
+ * Copyright (C) 2023-2025 Miroslav Hutar.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -79,6 +79,10 @@ private:
 
     pthread_t injectPacketThread = 0;
 
+    pthread_t ftmThread = 0;
+
+    pthread_t ftmResponderThread = 0;
+
     PacketInjector packetInjector;
 
     WiFIController wifiController;
@@ -91,10 +95,17 @@ private:
 
     static void *injectPackets(void *arg);
 
+    static void *ftm(void *arg);
+
+    static void *ftmResponder(void *arg);
+
     bool measuring = false;
 
     bool injecting = false;
-    
+
+    bool ftmEnabled = false;
+
+    bool ftmResponderEnabled = false;
 };
 
 #endif
